@@ -4,6 +4,7 @@
 This module exports functions to parse VCF files into various input 
 for other modules in yapp or other packages. VCF files are read using cyvcf2.
 """
+from collections import defaultdict
 import numpy as np
 from cyvcf2 import VCF
 
@@ -17,9 +18,13 @@ def geno2hap(a1,a2):
     if a1==-1 or a2==-1 or (a1!=a2):
         return -1
     else:
-        return a1        
+        return a1
+
+def phred2ln(x):
+    """Transforms a PHRED score into a natural logarithm"""
+    return -0.1*np.log(10)*x
         
-def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01):
+def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01, varids=None):
     """Parses a VCF file and returns data arrays usable with 
     the fastphase package
 
@@ -47,6 +52,8 @@ def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01):
         query variants in region reg only in bed format ("chr:begin-end"). VCF file must be indexed.
     maf : double
         Minimum allele frequency to include variants
+    varids : list
+        List of variants IDs to extract. Variants are always returned irrespective of MAF.
     Returns
     -------
     dict
@@ -66,6 +73,13 @@ def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01):
         regions=v.seqnames
     else:
         regions=[reg]
+    if varids is None:
+        keepvar=defaultdict(lambda: True)
+    else:
+        maf=0
+        keepvar=defaultdict(lambda: False)
+        for s in varids:
+            keepvar[s]=True
     variants={}
     trueregions=[]
     variants_summary={}
@@ -73,7 +87,7 @@ def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01):
     for r in regions:
         snps = []
         for s in v(r):
-            if len(s.ALT)>1 or s.aaf<maf:
+            if len(s.ALT)>1 or s.aaf<maf or not keepvar[s.ID]:
                 continue
             snps.append(s)
         if len(snps) == 0:
@@ -84,10 +98,10 @@ def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01):
         trueregions.append(r)
         for i, sid in enumerate(smp):
             if mode == 'likelihood':
-                fphdata[r][sid] = np.array([ [-s.gt_phred_ll_homref[i],
-                                           -s.gt_phred_ll_het[i],
-                                           -s.gt_phred_ll_homalt[i]] for s in variants[r]],
-                                        dtype=np.float)
+                fphdata[r][sid] = phred2ln( np.array([ [s.gt_phred_ll_homref[i],
+                                                        s.gt_phred_ll_het[i],
+                                                        s.gt_phred_ll_homalt[i]] for s in variants[r]],
+                                                     dtype=np.float))
             else:
                 geno = [s.genotypes[i] for s in variants[r]]
                 if mode =='genotype':
