@@ -8,6 +8,9 @@ from collections import defaultdict
 import numpy as np
 from cyvcf2 import VCF
 
+modes_avail=['genotype','inbred','phased','likelihood']
+default_mode=modes_avail[0]
+
 def geno2int(a1,a2):
     if a1 == -1 or a2 == -1:
         return -1
@@ -53,7 +56,7 @@ def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01, varids=None
     maf : double
         Minimum allele frequency to include variants
     varids : list
-        List of variants IDs to extract. Variants are always returned irrespective of MAF.
+        List of variants IDs to extract. Only variants found in vcf are returned, irrespective of MAF.
     Returns
     -------
     dict
