@@ -1,2 +1,2 @@
 # yapp
-Yet Another Phasing Project
+Yet Another Phasing Pipeline
