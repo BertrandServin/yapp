@@ -69,7 +69,7 @@ def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01, varids=None
     
     """
 
-    v = VCF(fname, gts012=True, strict_gt=True, samples=samples)
+    v = VCF(fname, gts012=True, strict_gt=True, samples=samples, lazy=True)
     smp = v.samples ## might differ if some requested are not found
 
     if reg is None:
