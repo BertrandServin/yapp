@@ -15,7 +15,8 @@ def get_parser():
                         choices=vcf.modes_avail,dest='vmode')
     parser.add_argument('-r','--reg', metavar='region', help='region in which the model is trained',
                         default=None,dest='region')
-    parser.add_argument('-c','--chunks',metavar='chunk_length',help='fit model on chunks of provided lengths', default=-1.0,type=float)
+    parser.add_argument('-c','--chunks',metavar='chunk_length',dest='chunklen',
+                        help='fit model on chunks of provided lengths', default=-1.0,type=float)
     parser.add_argument('--samples', metavar='IDs', help='comma separated list of samples to use',
                         default=None)
     parser.add_argument('--keep', metavar='FILE', help='Keep samples with IDs listed in FILE',
@@ -46,7 +47,7 @@ def main():
     if args.region:
         regions = [args.region]
     else:
-        regions = vcf.vcf_chunk_regions(args.vcf,chunksize=args.chunk_length)
+        regions = vcf.vcf_chunk_regions(args.vcf,chunksize=args.chunklen)
 
     ## fit fphmodels
     fphmodels = {}
