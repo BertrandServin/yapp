@@ -26,7 +26,60 @@ def geno2hap(a1,a2):
 def phred2ln(x):
     """Transforms a PHRED score into a natural logarithm"""
     return -0.1*np.log(10)*x
-        
+
+def chunk_region(reg, chunksize = -1):
+    """Decompose reg into smaller regions
+    Parameters
+    ----------
+    reg : str
+       region in bed format ("chr:begin-end"). begin and end may contain commas.
+    chunksize : float
+       size of chunks in basepairs 
+
+    Returns
+    -------
+    list of str
+        list of sub-regions in bed format. If chunksize is <0, returns a list with the original region 
+    """
+    if chunksize <0 :
+        return [reg]
+    chrom,coords = reg.split(':')
+    beg,end = coords.split('-')
+    beg = int(beg.replace(',',''))
+    end = int(end.replace(',',''))
+    starts = np.arange(beg,end,step=chunksize)
+    ends = [ x+chunksize-1 for x in starts]
+    ends[-1]=end
+    reglist = []
+    for i,s in enumerate(starts):
+        newreg = chrom+':'+str(s)+'-'+str(ends[i])
+        reglist.append(newreg)
+    return reglist
+
+def vcf_chunk_regions(fname, chunksize=-1):
+    """Creates regions of chunksize in a VCF file from contig header information
+    Parameters
+    ----------
+
+    fname : str
+        The name of the vcf(.gz) file
+    chunksize : int
+        Size of chunks
+
+    Returns
+    -------
+    list of str
+        List of regions in bed format. If chunksize is <0, regions are contigs.
+    """
+    v = VCF(fname, lazy=True)
+    regions=[ name+':'+'0-'+str(l) for name,l in zip(v.seqnames,v.seqlens)]
+    if chunksize > 0:
+        new_regions = []
+        for r in regions:
+            new_regions += chunk_region(r,chunksize)
+        regions = new_regions
+    return regions
+                       
 def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01, varids=None):
     """Parses a VCF file and returns data arrays usable with 
     the fastphase package
@@ -73,9 +126,10 @@ def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01, varids=None
     smp = v.samples ## might differ if some requested are not found
 
     if reg is None:
-        regions=v.seqnames
+        regions=[ name+':'+'0-'+str(l) for name,l in zip(v.seqnames,v.seqlens)]
     else:
         regions=[reg]
+
     if varids is None:
         keepvar=defaultdict(lambda: True)
     else:

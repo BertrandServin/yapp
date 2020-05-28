@@ -8,13 +8,14 @@ from yapp import vcf
 
 def get_parser():
     parser = argparse.ArgumentParser(description='Train a fastphase model')
+    parser.add_argument('vcf',metavar='vcf_file',help='read data from vcf')
     parser.add_argument('K', metavar='K', help='number of haplotype clusters',type=int)
-    parser.add_argument('--vcf',metavar='FILE',help='read data from vcf')
     parser.add_argument('-o',metavar='PREFIX',help='Use PREFIX for output files',default='fph', dest='prefix')
     parser.add_argument('--vcf-mode',metavar='M',help='data type, one of : '+','.join(vcf.modes_avail),default=vcf.default_mode,
                         choices=vcf.modes_avail,dest='vmode')
     parser.add_argument('-r','--reg', metavar='region', help='region in which the model is trained',
                         default=None,dest='region')
+    parser.add_argument('-c','--chunks',metavar='chunk_length',help='fit model on chunks of provided lengths', default=-1.0,type=float)
     parser.add_argument('--samples', metavar='IDs', help='comma separated list of samples to use',
                         default=None)
     parser.add_argument('--keep', metavar='FILE', help='Keep samples with IDs listed in FILE',
@@ -42,13 +43,20 @@ def main():
         else:
             smp += open(args.smpfile).read().split()
     smp = list(set(smp))
-    if args.vcf:
-        fphdat = vcf.vcf2fph(args.vcf,mode=args.vmode,reg=args.region,samples=smp)
-        print(fphdat.keys())
+    if args.region:
+        regions = [args.region]
+    else:
+        regions = vcf_chunk_regions(args.vcf,chunksize=args.chunk_length)
 
     ## fit fphmodels
     fphmodels = {}
-    for r in fphdat['regions']:
+    for r in regions:
+        fphdat = vcf.vcf2fph(args.vcf,mode=args.vmode,reg=r,samples=smp)
+        if len(fphdat['regions']) == 0:
+            print("No SNP in region", r,". Skipping it.")
+            continue
+        else:
+            print("Training model on region", r)
         fphmodels[r] = {}
         fphmodels[r]['variants']=fphdat['variants'][r]
         fphmodels[r]['parameters']=[]
@@ -68,7 +76,7 @@ def main():
                     fphmodels[r]['parameters'].append(pars)
             elif args.vmode=='likelihood':
                 for ID,genlik in fphdat['data'][r].items():
-                    fph.addGenotypeLikelihoods(ID,genlik)
+                    fph.addGenotypeLikelihood(ID,genlik)
                 for iem in range(args.nem):
                     print("Fitting EM",iem)
                     pars = fph.fit(args.K)
