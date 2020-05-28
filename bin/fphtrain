@@ -46,7 +46,7 @@ def main():
     if args.region:
         regions = [args.region]
     else:
-        regions = vcf_chunk_regions(args.vcf,chunksize=args.chunk_length)
+        regions = vcf.vcf_chunk_regions(args.vcf,chunksize=args.chunk_length)
 
     ## fit fphmodels
     fphmodels = {}
