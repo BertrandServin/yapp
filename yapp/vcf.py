@@ -47,8 +47,8 @@ def chunk_region(reg, chunksize = -1):
     beg,end = coords.split('-')
     beg = int(beg.replace(',',''))
     end = int(end.replace(',',''))
-    starts = np.arange(beg,end,step=chunksize)
-    ends = [ x+chunksize-1 for x in starts]
+    starts = np.arange(beg,end,step=chunksize,dtype=int)
+    ends = [ int(x+chunksize-1) for x in starts]
     ends[-1]=end
     reglist = []
     for i,s in enumerate(starts):

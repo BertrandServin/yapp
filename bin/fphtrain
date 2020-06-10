@@ -49,15 +49,15 @@ def main():
     else:
         regions = vcf.vcf_chunk_regions(args.vcf,chunksize=args.chunklen)
 
+    print("Will work on ",len(regions),"regions:",regions[:10])
     ## fit fphmodels
     fphmodels = {}
     for r in regions:
+        print("Training model on region", r)
         fphdat = vcf.vcf2fph(args.vcf,mode=args.vmode,reg=r,samples=smp)
         if len(fphdat['regions']) == 0:
             print("No SNP in region", r,". Skipping it.")
             continue
-        else:
-            print("Training model on region", r)
         fphmodels[r] = {}
         fphmodels[r]['variants']=fphdat['variants'][r]
         fphmodels[r]['parameters']=[]
