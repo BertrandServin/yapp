@@ -4,6 +4,7 @@ import sys
 import argparse
 import pickle
 from fastphase import fastphase
+from fastphase import fastphase_ray as fphray
 from yapp import vcf
 
 def get_parser():
@@ -16,13 +17,14 @@ def get_parser():
     parser.add_argument('-r','--reg', metavar='region', help='region in which the model is trained',
                         default=None,dest='region')
     parser.add_argument('-c','--chunks',metavar='chunk_length',dest='chunklen',
-                        help='fit model on chunks of provided lengths', default=-1.0,type=float)
+                        help='fit model on chunks of provided lengths', default=-1,type=int)
     parser.add_argument('--samples', metavar='IDs', help='comma separated list of samples to use',
                         default=None)
     parser.add_argument('--keep', metavar='FILE', help='Keep samples with IDs listed in FILE',
                         dest="smpfile", default=None)
     parser.add_argument('-e','--nem',metavar='N', type=int, dest='nem',default=20,
                         help='Number of EM runs')
+    parser.add_argument('--ray', default=False, action='store_true',help = "Use ray (instead of multiprocessing")
     return parser
 
 def main():
@@ -33,6 +35,10 @@ def main():
     args=parser.parse_args()
     logfile=args.prefix+'.fphtrain.log'
     model_file = args.prefix+'.fphmodel'
+    if args.ray:
+        fph = fphray.fastphase
+    else:
+        fph = fastphase.fastphase
     ## get data in
     if args.samples:
         smp = args.samples.split(',')
@@ -62,7 +68,7 @@ def main():
         fphmodels[r]['variants']=fphdat['variants'][r]
         fphmodels[r]['parameters']=[]
         nloc = len(fphdat['variants'][r])
-        with fastphase.fastphase(nloc, nproc=os.cpu_count(),prfx=logfile) as fph:
+        with fph(nloc, nproc=os.cpu_count(),prfx=logfile) as fph:
             if args.vmode=='inbred' or args.vmode=='phased':
                 for ID,hap in fphdat['data'][r].items():
                     fph.addHaplotype(ID,hap)
