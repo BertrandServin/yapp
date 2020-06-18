@@ -24,7 +24,10 @@ def get_parser():
                         dest="smpfile", default=None)
     parser.add_argument('-e','--nem',metavar='N', type=int, dest='nem',default=20,
                         help='Number of EM runs')
+    parser.add_argument('-n','--ncpu',metavar='N',help='number of CPUs',default=os.cpu_count(),type=int,dest="nproc")
     parser.add_argument('--ray', default=False, action='store_true',help = "Use ray (instead of multiprocessing")
+    parser.add_argument('--ray-ip',dest='ray_ip',metavar='IP_ADRESS:PORT', help='IP address of Ray head node', default=None)
+    parser.add_argument('--redis-password',dest='redis_pwd',metavar='PASSWORD',help='redis password to connect ot ray cluster', default=None)
     return parser
 
 def main():
@@ -68,25 +71,25 @@ def main():
         fphmodels[r]['variants']=fphdat['variants'][r]
         fphmodels[r]['parameters']=[]
         nloc = len(fphdat['variants'][r])
-        with fph(nloc, nproc=os.cpu_count(),prfx=logfile) as fph:
+        with fph(nloc, nproc=self.nproc,prfx=logfile) as myfph:
             if args.vmode=='inbred' or args.vmode=='phased':
                 for ID,hap in fphdat['data'][r].items():
-                    fph.addHaplotype(ID,hap)
+                    myfph.addHaplotype(ID,hap)
                 pars = fph.optimfit(args.K,verbose=True)
                 fphmodels[r]['parameters'].append(pars)
             elif args.vmode=='genotype':
                 for ID,gen in fphdat['data'][r].items():
-                    fph.addGenotype(ID,gen)
+                    myfph.addGenotype(ID,gen)
                 for iem in range(args.nem):
                     print("Fitting EM",iem)
-                    pars = fph.fit(args.K)
+                    pars = myfph.fit(args.K)
                     fphmodels[r]['parameters'].append(pars)
             elif args.vmode=='likelihood':
                 for ID,genlik in fphdat['data'][r].items():
-                    fph.addGenotypeLikelihood(ID,genlik)
+                    myfph.addGenotypeLikelihood(ID,genlik)
                 for iem in range(args.nem):
                     print("Fitting EM",iem)
-                    pars = fph.fit(args.K)
+                    pars = myfph.fit(args.K)
                     fphmodels[r]['parameters'].append(pars)
             else:
                 raise ValueError("Unknown mode"+args.vmode)
