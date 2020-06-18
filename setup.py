@@ -16,7 +16,7 @@ setup( name = 'yapp',
        install_requires = [
            'numpy',
            'cyvcf2',
-           'fastphase>=2'
+           'fastphase'
            ],
        scripts=['bin/fphtrain'],
        zip_safe = False)

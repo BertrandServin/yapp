@@ -3,8 +3,13 @@ import os
 import sys
 import argparse
 import pickle
+try:
+    import ray
+    ray_available=True
+    from fastphase import fastphase_ray as fphray
+except ImportError:
+    ray_available=False
 from fastphase import fastphase
-from fastphase import fastphase_ray as fphray
 from yapp import vcf
 
 def get_parser():
@@ -24,10 +29,13 @@ def get_parser():
                         dest="smpfile", default=None)
     parser.add_argument('-e','--nem',metavar='N', type=int, dest='nem',default=20,
                         help='Number of EM runs')
-    parser.add_argument('-n','--ncpu',metavar='N',help='number of CPUs',default=os.cpu_count(),type=int,dest="nproc")
-    parser.add_argument('--ray', default=False, action='store_true',help = "Use ray (instead of multiprocessing")
-    parser.add_argument('--ray-ip',dest='ray_ip',metavar='IP_ADRESS:PORT', help='IP address of Ray head node', default=None)
-    parser.add_argument('--redis-password',dest='redis_pwd',metavar='PASSWORD',help='redis password to connect ot ray cluster', default=None)
+    parser.add_argument('-n','--ncpu',metavar='N',help='number of CPUs',default=os.cpu_count(),type=int,dest="ncpu")
+    if ray_available:
+        parser.add_argument('--ray', default=False, action='store_true',help = "Use ray (instead of multiprocessing)")
+        parser.add_argument('--ray-ip',dest='ray_ip',metavar='IP:PORT', help='IP address of Ray head node', default=None)
+        parser.add_argument('--redis-password',dest='redis_password',metavar='PASSWORD',help='redis password to connect ot ray cluster', default=None)
+    else:
+        args.ray=False
     return parser
 
 def main():
@@ -40,6 +48,19 @@ def main():
     model_file = args.prefix+'.fphmodel'
     if args.ray:
         fph = fphray.fastphase
+        if args.ray_ip:
+            try:
+                assert args.redis_password
+            except AssertionError:
+                print("Password is required to connect to ray cluster. Use --redis-password option.")
+                raise
+            try: 
+                ray.init(address=args.ray_ip,redis_password=args.redis_password)
+            except:
+                print("Failed to connect to Ray cluster")
+                raise
+            ray_resources = ray.available_resources()
+            args.ncpu = int(ray_resources['CPU'])
     else:
         fph = fastphase.fastphase
     ## get data in
@@ -71,11 +92,11 @@ def main():
         fphmodels[r]['variants']=fphdat['variants'][r]
         fphmodels[r]['parameters']=[]
         nloc = len(fphdat['variants'][r])
-        with fph(nloc, nproc=self.nproc,prfx=logfile) as myfph:
+        with fph(nloc, nproc=args.ncpu,prfx=logfile) as myfph:
             if args.vmode=='inbred' or args.vmode=='phased':
                 for ID,hap in fphdat['data'][r].items():
                     myfph.addHaplotype(ID,hap)
-                pars = fph.optimfit(args.K,verbose=True)
+                pars = myfph.optimfit(args.K,verbose=True)
                 fphmodels[r]['parameters'].append(pars)
             elif args.vmode=='genotype':
                 for ID,gen in fphdat['data'][r].items():
