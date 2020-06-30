@@ -73,7 +73,8 @@ def main():
             smp = open(args.smpfile).read().split()
         else:
             smp += open(args.smpfile).read().split()
-    smp = list(set(smp))
+    if smp:
+        smp = list(set(smp))
     if args.region:
         regions = [args.region]
     else:
@@ -96,22 +97,25 @@ def main():
             if args.vmode=='inbred' or args.vmode=='phased':
                 for ID,hap in fphdat['data'][r].items():
                     myfph.addHaplotype(ID,hap)
-                pars = myfph.optimfit(args.K,verbose=True)
-                fphmodels[r]['parameters'].append(pars)
+                if args.ray:
+                    pars = myfph.optimfit(args.K,verbose=True)
+                else:
+                    pars = myfph.optimfit(args.K,verbose=True)
+                fphmodels[r]['parameters'].append(pars.__dict__)
             elif args.vmode=='genotype':
                 for ID,gen in fphdat['data'][r].items():
                     myfph.addGenotype(ID,gen)
                 for iem in range(args.nem):
                     print("Fitting EM",iem)
                     pars = myfph.fit(args.K)
-                    fphmodels[r]['parameters'].append(pars)
+                    fphmodels[r]['parameters'].append(pars.__dict__)
             elif args.vmode=='likelihood':
                 for ID,genlik in fphdat['data'][r].items():
                     myfph.addGenotypeLikelihood(ID,genlik)
                 for iem in range(args.nem):
                     print("Fitting EM",iem)
                     pars = myfph.fit(args.K)
-                    fphmodels[r]['parameters'].append(pars)
+                    fphmodels[r]['parameters'].append(pars.__dict__)
             else:
                 raise ValueError("Unknown mode"+args.vmode)
     with open(model_file,'wb') as fout:
