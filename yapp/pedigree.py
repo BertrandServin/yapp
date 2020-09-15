@@ -7,6 +7,9 @@ A pedigree is a directed graph of familial relationships (father, mother, offspr
 import warnings
 from collections import defaultdict
 
+FEMALE = 0
+MALE = 1
+
 class PedNode():
     """A node in the pedigree that consists of an individual and its direct relatives.
 
@@ -21,12 +24,15 @@ class PedNode():
     children : list of obj
        the individual's offspring. Must be PedNode objects.
     """
-    def __init__(self,indiv,father=None,mother=None):
+    def __init__(self,indiv,father=None,mother=None,sex=None):
         self.__indiv=indiv
         self.__father=None
         self.__mother=None
+        self.__sex=None
+        self.__gen=None
         self.father=father
         self.mother=mother
+        self.sex=sex
         self.children=[]
 
     def __str__(self):
@@ -36,7 +42,29 @@ class PedNode():
             f"Mother : {self.mother is None and 'NULL' or self.mother.indiv}\n"
             )
         return output
+
+    @property
+    def gen(self):
+        if self.__gen == None:
+            self.__gen=self.compute_gen()
+        return self.__gen
+    @gen.setter
+    def gen(self,v):
+        if v != None:
+            raise ValueError("PedNode.gen can only be assigned None")
+        self.__gen=None
     
+    def compute_gen(self):
+        if self.father == None and self.mother == None:
+             return 0
+        else:
+            if self.father is None:
+                return self.mother.gen+1
+            elif self.mother is None:
+                return self.father.gen+1
+            else:
+                return max(self.mother.gen+1,self.father.gen+1)
+                
     @property
     def indiv(self):
         """Individual data"""
@@ -51,11 +79,13 @@ class PedNode():
         return self.__father
     @father.setter
     def father(self, indiv):
-        if self.father != None and indiv != self.father:
-            raise ValueError('Setting a new father is not possible.')
-        if indiv is not None:
+        if indiv is None:
+            self.__father=None
+        elif self.__father is None:
             assert type(indiv) is PedNode
             self.__father = indiv
+        else:
+            raise ValueError('Setting a new father is not possible.')
 
     @property
     def mother(self):
@@ -63,12 +93,26 @@ class PedNode():
         return self.__mother
     @mother.setter
     def mother(self, indiv):
-        if self.mother != None and indiv != self.mother:
-            raise ValueError('Setting a new mother is not possible.')
-        if indiv is not None:
+        if indiv is None:
+            self.__mother=None
+        elif self.__mother is None:
             assert type(indiv) is PedNode
             self.__mother = indiv
+        else:
+            raise ValueError('Setting a new mother is not possible.')
 
+    @property
+    def sex(self):
+        """FEMALE or MALE or None"""
+        return self.__sex
+    @sex.setter
+    def sex(self, v):
+        if self.sex and v!=self.sex:
+            raise ValueError(f'Sex mismatch for individual {self.indiv}')
+        else:
+            assert v==MALE or v==FEMALE or v==None
+            self.__sex=v
+            
     def add_child(self,child):
         """Add a child to the node."""
         assert type(child) is PedNode
@@ -92,6 +136,13 @@ class Pedigree():
         for m in members:
             self.add_node(m)
 
+    def __iter__(self):
+        """ Iterator on nodes in the pedigree. 
+        Parents are guaranteed to precede offspring.
+        """
+        for n in sorted(self.nodes.values(), key=lambda x:x.gen):
+            yield n
+            
     @classmethod
     def from_fam_file(cls, path):
         with open(path) as f:
@@ -179,11 +230,59 @@ class Pedigree():
         self.__founders = None
         self.__non_founders = None
         self.__families = None
+        for n in self.nodes.values():
+            n.gen=None
         
-    def add_node(self,indiv):
+    def add_indiv(self,indiv):
         ''' Add a new guy to the pedigree'''
         self.nodes[indiv]=PedNode(indiv)
 
+    def del_indiv(self,indiv):
+        """Remove an individual from the pedigree. Links to its node are removed.
+        Returns
+        -------
+        the node of the individual if found, else None. 
+        """
+        try:
+            n = self.nodes[indiv]
+        except KeyError:
+            return None
+        else:
+            del self.nodes[indiv]
+            for c in n.children:
+                if c.father and c.father==n:
+                    c.father=None
+                elif c.mother and c.mother==n:
+                    c.mother=None
+            if n.father:
+                n.father.children.remove(n)
+            if n.mother:
+                n.mother.children.remove(n)
+            return n
+    
+    def add_node(self,node):
+        """Add a node in the pedigree. 
+        Familial links are restored.
+        
+        Argument:
+        ---------
+        node : PedNode object
+            the node to add
+        """
+        assert type(node)==PedNode
+        self.nodes[node.indiv]=node
+        if node.father:
+            node.father.children.append(node)
+        if node.mother:
+            node.mother.children.append(node)
+        if node.sex:
+            if node.sex==MALE:
+                for c in node.children:
+                    c.father=node
+            elif node.sex==FEMALE:
+                for c in node.children:
+                    c.mother=node
+        
     def set_father(self,offspring,dad):
         '''Set that a dad -> offspring relationship
 
@@ -202,14 +301,17 @@ class Pedigree():
         try:
             indiv = self.nodes[offspring]
         except KeyError:
-            self.add_node(offspring)
+            self.add_indiv(offspring)
             indiv = self.nodes[offspring]
 
         try:
             father = self.nodes[dad]
+            if not father.sex:
+                father.sex=MALE
         except KeyError:
-            self.add_node(dad)
-            father = self.nodes[dad]
+            self.add_indiv(dad)
+            father=self.nodes[dad]
+            father.sex=MALE
 
         indiv.father = father
         father.add_child(indiv)
@@ -239,14 +341,17 @@ class Pedigree():
         try:
             indiv = self.nodes[offspring]
         except KeyError:
-            self.add_node(son)
+            self.add_indiv(son)
             indiv = self.nodes[offspring]
 
         try:
             mother = self.nodes[mom]
+            if not mother.sex:
+                mother.sex=FEMALE
         except KeyError:
-            self.add_node(mom)
+            self.add_indiv(mom)
             mother = self.nodes[mom]
+            mother.sex=FEMALE
 
         indiv.mother = mother
         mother.add_child(indiv)
@@ -283,9 +388,9 @@ class Pedigree():
         connected.append(node)
         for off in node.children:
             self._get_relatives(off,connected)
-        if node.father!=None:
+        if node.father:
             self._get_relatives(node.father,connected)
-        if node.mother!=None:
+        if node.mother:
             self._get_relatives(node.mother,connected)
         return connected
 
@@ -303,23 +408,11 @@ class Pedigree():
         families = []
         while len(founders2go) > 0:
             relatives = self._get_relatives( founders2go[0] )
-            # print(f"Family of {founders2go[0]}")
-            # print(f"[founders2go]: {[x.indiv for x in founders2go]}")
-            # print(f"[offspring2go]: {[x.indiv for x in offspring2go]}")
-            # print(f"[relatives]: {[(x.indiv,x) for x in relatives]}")
             fam = Pedigree.from_pednodes(relatives)
             families.append(fam)
-            famFounders=[]
-            famNonFounders=[]
             for x in relatives:
-                if x in founders2go:
-                    famFounders.append(x)
-                else:
-                    famNonFounders.append(x)
-            # print(f"[famFounders]:  {[x.indiv for x in famFounders]}")
-            # print(f"[famNonFounders]: {[x.indiv for x in famNonFounders]}")
-            for x in famFounders:
-                founders2go.remove(x)
-            for x in famNonFounders:
+                try:
+                    founders2go.remove(x)
+                except ValueError:
                     offspring2go.remove(x)
         return families
