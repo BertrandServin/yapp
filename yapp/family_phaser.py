@@ -570,7 +570,7 @@ def main(args):
     phaser=Phaser.from_prefix(prfx)
     phaser.run()
     phaser.write_phased_vcf(prfx+'_phased.vcf.gz')
-    phaser.save(prfx+'.db')
+    phaser.save(prfx+'_yapp.db')
     logging.info("YAPP PHASE analysis done")
 if __name__=='__main__':
     main(sys.argv)

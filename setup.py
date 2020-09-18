@@ -6,18 +6,18 @@ def readme():
 
 setup( name = 'yapp',
        version = '0.1',
-       description = 'Yet Another Phasing Project',
+       description = 'Yet Another Phasing Program',
        long_description = readme(),
        url = 'https://github.com/BertrandServin/yapp',
        author = 'Bertrand Servin',
        author_email = 'bertrand.servin@inrae.fr',
-       license = 'LGPLv3',
+       license = 'LGPLv2.1',
        packages = ['yapp'],
        install_requires = [
            'numpy',
            'cyvcf2',
            'fastphase'
            ],
-       scripts=['bin/fphtrain'],
+       scripts=['bin/fphtrain','bin/yapp'],
        zip_safe = False)
        
