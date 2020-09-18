@@ -201,6 +201,10 @@ class Gamete():
             if g==1:
                 newgam.haplotype[i]=g-a
             else: ## 0 -> (0,0) or 2->(1,1)
-                assert ((g==0) and (a==0)) or ((g==2) and (a==1))
-                newgam.haplotype[i]=a
+                try:
+                    assert ((g==0) and (a==0)) or ((g==2) and (a==1))
+                except AssertionError:
+                    gam.haplotype[i]=-1
+                else:
+                    newgam.haplotype[i]=a
         return newgam
