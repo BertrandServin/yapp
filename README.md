@@ -1,12 +1,20 @@
 # yapp : Yet Another Phasing Program
 
-`yapp` is a program that includes a set of utilities to work on high
+yapp is a program that includes a set of utilities to work on high
 density genetic data in pedigrees. It is similar to other existing
-softwares such as `LINKPHASE`, `FIMPUTE`, `AlphaPhase` ... . I
+softwares such as LINKPHASE, FIMPUTE, AlphaPhase ... . I
 developed it for my own research to have a tool that is opensource and
-that I can tweak to my own needs. If you find it useful for you, drop
-me a note on twitter @BertrandServin. If you want to contribute ideas
-or code, you are welcome if you know python :)
+that I can tweak to my own needs. 
+
+If you find it useful for you, drop me a note on twitter
+@BertrandServin. If you want to contribute ideas or code, you are
+welcome if you know python :) 
+
+yapp and its utilities implement models and methods that have been
+invented by other people. If you use yapp it is important that you
+acknowledge the work of these authors by citing the appropriate
+references. These will depend on the way you use the software. The
+documentation below gives the citations in different situations.
 
 ## Installation
 
@@ -23,7 +31,7 @@ optional and must be installed if needed:
 - numberjack : a python platform for combinatorial optimization. it is
   a python module so can be installed via pip. However the current
   setup script is buggy and installation must be tweaked. TODO: write
-  instructions for installing numberjack properly iwth python 3.8.
+  instructions for installing numberjack properly with python 3.8.
   
 I will upload a proper package on pypi when I have finished
 implementing my initial ideas on the software.
@@ -56,7 +64,17 @@ where `prfx` is the prefix of **all** input files :
 
 The events are logged in `<path/to/prefix>_yapp_phase.log`. The output
 files produced are a phased VCF `<path/to/prefix>_phased.vcf.gz` and a
-binary file `<path/to/prefix>_yapp.db`. This binary file is usefuly
+binary file `<path/to/prefix>_yapp.db`. This binary file is useful
 for conducting analyses with other `yapp` commands.
+
+#### Citation
+yapp uses a Weighted Constraints Satisfaction Problem solver ,
+ToulBar2, to infer parental phase from transmitted gamete. This idea
+was developped by Aurélie Favier during her PhD with Simon de Givry and
+Andres Legarra.
+
+[Favier, Aurélie (2011). Décompositions fonctionnelles et
+structurelles dans les modèles graphiques probabilistes appliquées à
+la reconstruction d'haplotypes.](http://thesesups.ups-tlse.fr/1527/)
 
 ### `recomb`
