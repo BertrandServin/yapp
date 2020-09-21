@@ -14,7 +14,7 @@ yapp and its utilities implement models and methods that have been
 invented by other people. If you use yapp it is important that you
 acknowledge the work of these authors by citing the appropriate
 references. These will depend on the way you use the software. The
-documentation below gives the citations in different situations.
+documentation below provides the relevant citations.
 
 ## Installation
 
@@ -50,9 +50,11 @@ Available commands are:
 ### `phase`
 
 The `phase` command is used to infer gametic phase and segregation
-indicators in a genotyped pedigree. Its input consists of three files a
-VCF file, its index obtained with `tabix`, and a FAM file with
-family information. The usage is:
+indicators in a genotyped pedigree. Its input consists of three files
+a [VCF file](http://samtools.github.io/hts-specs/VCFv4.2.pdf), its
+index obtained with [`tabix`](http://www.htslib.org/doc/tabix.html), and a [FAM
+file](https://www.cog-genomics.org/plink/1.9/formats#fam) with family
+information. The usage is:
 
 ```bash
 yapp phase <prfx>
@@ -60,7 +62,9 @@ yapp phase <prfx>
 
 where `prfx` is the prefix of **all** input files :
 `<path/to/prefix>.fam` , `<path/to/prefix>.vcf.gz` ,
-`<path/to/prefix>vcf.gz.tbi`
+`<path/to/prefix>vcf.gz.tbi`. Note that when exporting a `plink` bed
+file to VCF, you must do so using `--recode vcf-iid` so that sample
+names in the resulting VCF do no include the family-ID.
 
 The events are logged in `<path/to/prefix>_yapp_phase.log`. The output
 files produced are a phased VCF `<path/to/prefix>_phased.vcf.gz` and a
@@ -68,10 +72,10 @@ binary file `<path/to/prefix>_yapp.db`. This binary file is useful
 for conducting analyses with other `yapp` commands.
 
 #### Citation
-yapp uses a Weighted Constraints Satisfaction Problem solver ,
-ToulBar2, to infer parental phase from transmitted gamete. This idea
-was developped by Aurélie Favier during her PhD with Simon de Givry and
-Andres Legarra.
+`yapp phase` uses a Weighted Constraints Satisfaction Problem solver,
+[https://miat.inrae.fr/toulbar2/](ToulBar2), to infer parental phase
+from transmitted gametes. This idea was developped by Aurélie Favier
+during her PhD with Simon de Givry and Andres Legarra.
 
 [Favier, Aurélie (2011). Décompositions fonctionnelles et
 structurelles dans les modèles graphiques probabilistes appliquées à
