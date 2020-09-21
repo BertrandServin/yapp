@@ -15,6 +15,7 @@ setup( name = 'yapp',
        packages = ['yapp'],
        install_requires = [
            'numpy',
+           'scipy',
            'cyvcf2',
            'fastphase'
            ],
