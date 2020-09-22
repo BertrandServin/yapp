@@ -1,32 +1,198 @@
-#/usr/bin/env python3
 # -*-coding:utf-8 -*
+''' 
+Yapp module recombination.py
+
+Yapp module to analyse recombination information in pedigrees
+'''
 import sys
+import logging
 import random
 import collections.abc
 from collections import defaultdict
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.stats import gamma,binom
-from yapp import pedigree, family_phaser
+from scipy.stats import gamma,binom, poisson
+from . import family_phaser, MALE, FEMALE
 
 
 ##import matplotlib.pyplot as plt
 
-''' 
-Recombination rates estimation for each marker interval on the map 
-'''
+def reg2chr(bedstr):
+    """Returns chromosome value from  bed string"""
+    return bedstr.split(':')[0]
 
-class Nmeioses(collections.abc.Callable):
-    def __init__(self, default_value):
-        self.default = int(default_value)
-        self.predictors = defaultdict( lambda : lambda x : self.default)
-        
-    def __call__(self, chrom, pos):
-        return int( np.ceil( self.predictors[chrom](pos)))
+class RecombAnalyser():
+    def __init__(self, phaser_db):
+        self.phaser = family_phaser.Phaser.load(phaser_db)
+        self.parents = {}
+        for node in self.phaser.pedigree:
+            if len(node.children)>1: ## need at least 2 offspring to detect recomb 
+                self.add_parent(node)
+        self.size_covered = defaultdict( lambda : defaultdict(lambda : 0.0)) ## size_covered[sex][chrom]
+        self._gsize=None
+    @property
+    def crossovers(self):
+        """Iterator over crossing overs"""
+        return (co for co in ind.meioses.values() for ind in self.parents)
+
+    @property
+    def male_crossovers(self):
+        """Iterator over male crossing overs"""
+        return (co for co in ind.meioses.values() for ind in self.parents if ind.sex==MALE)
+
+    @property
+    def female_crossovers(self):
+        """Iterator over female crossing overs"""
+        return (co for co in ind.meioses.values() for ind in self.parents if ind.sex==FEMALE)
     
-    def add_predictor(self, chrom, positions, values):
-        self.predictors[chrom]=interp1d(positions, values, fill_value=0)
+    def add_parent(self, pednode):
+        try:
+            par = self.parents[pednode.indiv]
+        except KeyError:
+            par = Parent(pednode.indiv, pednode.sex)
+            self.parents[pednode.indiv]=par
+        else:
+            logging.warning(f"Trying to create the parent {pednode.indiv} multiple times")
+
+    @property
+    def genome_size(self):
+        res = 0
+        for reg in self.phaser.regions:
+            res += self.phaser.vcf['variants'][reg][-1][2]
+        return res
         
+    @staticmethod
+    def get_crossovers(si, call=0.99):
+        """Find crossover boundaries from segregation indicators
+        
+        Arguments
+        ---------
+        - si : np.array( (2,L) )
+           Segragation indicator. si[0,] is the best phase solution, si[1,] is the 
+           probability that the phase is correct. At each phase switch, determines the 
+           boundaries such that the phase probabilty is > call
+        - call : float
+           Minimum probability to consider a phase resolved.
+        
+        Returns
+        -------
+        
+        list[ [l,r] ]
+        list of crossover boundaries found (left, right) = Indices in the array.
+        
+        """
+        best_guess = np.array([x[0] for x in si])
+        phase_prob = np.array([x[1] for x in si])
+        co_loc = np.asarray( (best_guess[1:]-best_guess[:-1])!=0).nonzero()[0]
+        nco = len(co_loc)
+        res=[]
+        if nco==0:
+            return res
+        for l in co_loc:
+            left=l
+            while phase_prob[left]<call:
+                if left==0:
+                    break
+                left -=1
+            right=l+1
+            while phase_prob[right]<call:
+                if right == len(best_guess)-1:
+                    break
+                right +=1
+            res.append([left,right])
+        return res
+
+    def run(self):
+        """ Run the recombination analysis """
+        print("Calculating number of informative meioses for each parent")
+        self.set_informative_meioses()
+        print("Finding recombinations")
+        self.identify_crossovers()
+            
+    def set_informative_meioses(self):
+        """ Identify informative meioses for each parent """
+        logging.info("Set Informative meioses")
+        for reg in self.phaser.regions:
+            snps = self.phaser.vcf['variants'][reg]
+            pos = np.array([ x[2] for x in snps])
+            mids = np.array( [ 0.5*(x+y) for x,y in zip(pos[:-1],pos[1:])])
+            chrom = reg2chr(reg)
+            chrom_pairs = self.phaser.phases[reg]
+            for indiv,par in self.parents.items():
+                chpair = chrom_pairs[indiv]
+                node = self.phaser.pedigree.nodes[indiv]
+                n_meio_info = np.zeros(len(snps)-1, dtype=np.int)
+                for c in node.children:
+                    par.meioses[c.indiv]=[]
+                    chpair_c = chrom_pairs[c.indiv]
+                    combin_info = chpair.resolved&chpair_c.phased
+                    infomk = combin_info.nonzero()[0]
+                    if len(infomk)>0:
+                        infomk_l = min(infomk)
+                        infomk_r = max(infomk)
+                        n_meio_info[infomk_l:infomk_r]+=1
+                        self.size_covered[node.sex][chrom]+=(pos[infomk_r]-pos[infomk_l])*1e-6
+                par.set_n_info_meioses(chrom, mids, n_meio_info)
+                for pp in range(0,max(pos), 1000000):
+                    logging.debug(f"{indiv}:{chrom} {pp} {par.n_info_meioses(chrom,pp)}")
+        for sex in self.size_covered:
+            for chrom in self.size_covered[sex]:
+                logging.info(f"sex:{sex} chrom:{chrom} size:{self.size_covered[sex][chrom]} Mb")
+
+    def identify_crossovers(self, recrate = 1):
+        logging.info("Gathering crossovers")
+        recmaps = self.phaser.recmap(recrate)
+        for reg in self.phaser.regions:
+            logging.info(f"Working on : {reg}")
+            chrom_pairs = self.phaser.phases[reg]
+            recmap=recmaps[reg]
+            chrom = reg2chr(reg)
+            snps = self.phaser.vcf['variants'][reg]
+            pos = np.array([ x[2] for x in snps])
+            logging.info("1. Infer Segregation Indicators")
+            for node in self.phaser.pedigree:
+                logging.info(f"{node.indiv} -- [ "
+                      f"sex:{node.sex} "
+                      f"gen:{node.gen} "
+                      f"par:{(node.father!=None)+(node.mother!=None)} "
+                      f"off:{len(node.children)} ]")
+                chpair = chrom_pairs[node.indiv]
+                if node.father:
+                    try:
+                        par = self.parents[node.father.indiv]
+                    except KeyError:
+                        continue
+                    else:
+                        chpair_p = chrom_pairs[node.father.indiv]
+                        chpair.si_pat = chpair_p.get_segregation_indicators(chpair.paternal_gamete,recmap)
+                        cos = self.get_crossovers(chpair.si_pat)
+                        for x,y in cos:
+                            par.add_offspring_CO(node.indiv, chrom, pos[x],pos[y])
+                if node.mother:
+                    try:
+                        par = self.parents[node.mother.indiv]
+                    except KeyError:
+                        continue
+                    else:
+                        chpair_m = chrom_pairs[node.mother.indiv]
+                        chpair.si_mat = chpair_m.get_segregation_indicators(chpair.maternal_gamete,recmap)
+                        cos=self.get_crossovers(chpair.si_mat)
+                        for x,y in cos:
+                            par.add_offspring_CO(node.indiv, chrom, pos[x],pos[y])
+        for name,par in self.parents.items():
+            to_rm=[]
+            for off in par.meioses:
+                pval = poisson(recrate*self.genome_size*1e-8).sf(len(par.meioses[off]))
+                if pval < 1e-6:
+                    logging.warning(f"par:{name} off:{off} sex:{par.sex} nco:{len(par.meioses[off])} "
+                                    f"pval:{pval:.3g} -> very high number of COs. Meiosis will be ignored")
+                    to_rm.append(off)
+                elif pval < 1e-3:
+                    logging.info(f"par:{name} off:{off} sex:{par.sex} nco:{len(par.meioses[off])} "
+                                    f"pval:{pval:.3g} -> Number of COs seems somewaht unlikely.")
+            for off in to_rm:
+                del par.meioses[off]
+                    
 class Parent():
     '''
     Class for storing information for each parent
@@ -36,11 +202,11 @@ class Parent():
     - name : str
         identifier for the parent
     - sex : int or None
-        sex of the parent
+        sex of the parent ( 0: Male, 1: Female)
     - meioses : dict( str : list of CrossingOver objects)
         meioses of the individual.
     - nmeio_info : function: x(chrom,pos) -> int
-        stores a function that returns the number of meiosis at a given genomic coordinate
+        a function that returns the number of meiosis at a given genomic coordinate
     '''
     
     def __init__(self,name,sex=None): 
@@ -49,12 +215,29 @@ class Parent():
         self.meioses = defaultdict(list)
         self._nmeio_info = None
         
+    @property
+    def nmeioses(self):
+        return len(self.meioses)
+    
+    @property
+    def nb_CO_meioses(self):
+        ''' 
+        List of the number of crossovers for each meiosis
+        '''
+        return [len(v) for v in self.meioses.values()]
+
+    @property
+    def nb_CO_tot(self):
+        '''
+        Total number of crossing over in all meioses
+        '''
+        return np.sum(self.nb_CO_meioses)
+
     def get_offspring_CO(self, name):
         '''
         Get the list of CO for offspring with name *name*
-        If offspring is new creates a new empty list in meioses dictionary and returns it.
         '''
-        return self.meioses(name)
+        return self.meioses[name]
 
     def add_offspring_CO(self, name, chro, left, right):
         '''
@@ -64,50 +247,91 @@ class Parent():
         self.meioses[name].append(myco)
 
     def n_info_meioses(self, chrom, pos):
+        '''Get the number of informative meioses for the parent 
+        at position pos on chromosome chrom.
+        
+        Arguments
+        ---------
+        - chrom : int
+            Chromosome
+        - pos : int
+            Position
+
+        Returns
+        -------
+        int
+           number of informative meioses
+        '''
         try:
             return self._nmeio_info( chrom, pos)
         except TypeError:
             return self.nmeioses
 
     def set_n_info_meioses(self, chrom, positions, values):
+        '''Enter information on the number of informative meioses on
+        a chromosome, at a set of positions.
+
+        Arguments
+        ---------
+        - chrom : int
+            chromosome
+        - positions : array of int
+            Positions at which the number of informative meioses is known
+        - values : array of int
+            Number of informative meioses at each position
+        '''
         if self._nmeio_info == None:
             self._nmeio_info = Nmeioses(self.nmeioses)
         self._nmeio_info.add_predictor( chrom, positions, values)
-        
-    @property
-    def nmeioses(self):
-        return len(self.meioses)
-    
-    @property
-    def nb_CO_meioses:
-        ''' 
-        List of the number of crossovers for each meiosis
-        '''
-        return [len(v) for v in self.meioses.values()]
 
-    @property
-    def nb_CO_tot:
-        '''
-        Total number of crossing over in all meioses
-        '''
-        return np.sum(self.nb_CO_meioses)
+    def n_info_meioses_seg(self, chrom, left, right):
+        return max(self.n_info_meioses(chrom,left), self.n_info_mesioses(chrom,right))
+        
     
     def oi_xi(self, chrom, w_left, w_right):
         '''
         Computes probabilities that each crossing over in the parent occurs in
-        genomic region on chromosome *chrom* between positions *w_gauche* and *w_droite*.
+        genomic region on chromosome *chrom* between positions *w_left* and *w_right*.
         
         Returns a tuple with entries:
         -- list of contributions for each CO
-        -- number of meioses for the parent
+        -- number of informative meioses for the parent in the region
         '''
         contrib = []
         for m in self.meioses.values():
             for co in m:
                 if co.chro == chrom and not( (w_right < co.left ) or (w_left > co.right)):
                     contrib += [co.oi_xi(w_left, w_right)]
-        return (contrib, len(self.meioses))
+        return (contrib, self.n_info_meioses_seg(chrom, w_left, w_right))
 
+class Nmeioses(collections.abc.Callable):
+    '''Class offering a callable interface to interpolate the number of informative meioses 
+    from observed data.
+
+    Usage
+    -----
+    Nmeioses(chrom, pos) -> int
+
+    Nmeioses.add_predictor(chrom, positions, values) : set up a 1D interpolator 
+    for chromosome chrom from observed (positions , values) points.
+
+    Returns
+    -------
+    int
+       Interpolated number of meioses. 0 if outside training range
+    '''
+    def __init__(self, default_value):
+        self.default = int(default_value)
+        self.predictors = defaultdict( lambda : lambda x : self.default)
+        
+    def __call__(self, chrom, pos):
+        try: 
+            return int( np.ceil( self.predictors[chrom](pos)))
+        except ValueError:
+            return 0
+    
+    def add_predictor(self, chrom, positions, values):
+        self.predictors[chrom]=interp1d(positions, values, fill_value=0)
         
 class CrossingOver():
     '''
@@ -118,10 +342,15 @@ class CrossingOver():
     -- left : position of the marker on the left side
     -- right : position of the marker on the right side
     '''
-    def __init__(self, chro, gauche, droite):
-        self.chro = chro
-        self.left = gauche
-        self.right = droite
+    def __init__(self, chrom, left, right):
+        assert right > left
+        self.chrom = chrom
+        self.left = left
+        self.right = right
+
+    @property
+    def size(self):
+        return self.right-self.left
                 
     def oi_xi(self, w_left, w_right):
         '''
@@ -157,167 +386,26 @@ class CrossingOver():
                 print(self.right, w_right, self.left, w_left)
                 raise
             return float(self.right-w_left)/(self.right-self.left)
-                
-def main():
-    ## set working directory
-    main_wd='data/family/' 
-    ## dictionary of parents
-    pere = {}
-    ## chromosome loop
-    physmap=[]
-    for i in range(1,27):
-        ## get marker information
-        carte_chr={} 
-        with open(main_wd+'LINKPHASE/chr_'+str(i)+'/map','r') as mapfile:
-            for ligne in mapfile:
-                buf=ligne.split()
-                carte_chr[buf[0]]=int(float(buf[2])*1e6) ## converts LINKPHASE input in Mb to bp.
-        physmap.append(carte_chr)
-        ## get crossing overs
-        with open(main_wd+'LINKPHASE/chr_'+str(i)+'/recombinations_hmm','r') as f:
-            for ligne in f:
-                buf = ligne.split()
-                try:
-                    lepere = pere[buf[1]]
-                except KeyError:
-                    lepere = Parent(buf[1]) 
-                    pere[buf[1]] = lepere
-                lepere.add_offspring_CO(buf[0], i, carte_chr[buf[2]], carte_chr[buf[3]]) 
 
-    ## Compute Ri and \bar(Ri)
-    Ribar=0
-    S_Ri_mi=0
-    ## get selected sires
-    FIDs={}
-    with open(main_wd+"FIDs.txt") as f:
-        for i,ligne in enumerate(f):
-            buf=ligne.split()
-            FIDs[buf[0]]=1
-    with open("results/family/parent_recombination.txt",'w') as fout:
-        print('parent','nbCO','nbMeio','Ri',file=fout)
-        todel=[]
-        for nom,p in pere.items():
-            try:
-                myfid=FIDs[p.name]
-                p.Ri=float(p.nb_CO_tot)/len(p.meioses)
-                print(p.name, p.nb_CO_tot,len(p.meioses),p.Ri,file=fout)
-                Ribar+=p.Ri
-                S_Ri_mi+=p.nb_CO_tot ## = Rs x ms
-            except KeyError:
-                todel.append(nom)
-        for p in todel:
-            del pere[p]
-    Ribar/=len(pere)
-    S_Ri_mi/=Ribar
-    calibrate_prior=False
-    if calibrate_prior:
-        print('CALIBRATE PRIOR on c')
-        ## Calibrate genome-wide prior on w_size windows
-        cgw=[]
-        w_size=1e5
-        g_size=0
-        for i in range(26):
-            chrom=i+1
-            print('CHROMOSOME',chrom)
-            xlim=max(physmap[i].values())                ## right-most position
-            g_size+=xlim
-            for w_left in range(0,xlim,int(w_size)):
-                pc=100.0*w_left/xlim
-                sys.stdout.write("%3.2f %% \r"%pc)
-                sys.stdout.flush()
-                w_right=w_left+w_size
-                M=0.0 ## total number of meioses
-                oi_xi=0.0 ## expected number of CO in interval
-                for p in pere.values():
-                    res=p.oi_xi(chrom,w_left,w_right)
-                    oi_xi+=np.sum(res[0])
-                    M+=res[1]
-                cgw.append(1e8*oi_xi/(w_size*M)) ## in cM/Mb
-        print("Genome Size",g_size)
-        cgw=np.array(cgw)
-        cgw=cgw[cgw>0]
-        prior_params=gamma.fit(cgw,floc=0)
-        cj_alpha=prior_params[0]
-        cj_beta=1.0/prior_params[2]
-        cj_prior=gamma(prior_params[0],0,prior_params[2])
-        hh=plt.hist(cgw,normed=1,bins=50, facecolor='g',alpha=0.75)
-        ii=np.arange(0.0,max(cgw),0.01)
-        ligne,=plt.plot(ii,cj_prior.pdf(ii),'r',linewidth=3)
-        plt.legend([ligne],[ 'Gamma( '+str(np.round(cj_alpha,decimals=1))+', '+str(np.round(cj_beta,decimals=1))+')'])
-        plt.title("Distribution of Raw c estimates")
-        plt.savefig('results/family/Prior_cj.pdf')
-        plt.close()
-    else:
-        cj_alpha=2.7
-        cj_beta=1.8
-        cj_prior=gamma(cj_alpha,0,1.0/cj_beta)
-    ## 1Mb map
-    with open("results/family/1Mb_map.txt",'w') as fout,\
-         open("results/combined/comb_1Mb_map_family.txt",'w') as fout_comb:
-        print("CONSTRUCTING 1Mb RECOMBINATION MAPS")
-        print('chr','left','right','m_cj','s_cj','q5_cj','q95_cj',file=fout)
-        print('chr','left','right','method','rep','value',file=fout_comb)
-        w_size_rec=1e6
-        for i in range(26):
-            chrom=i+1
-            print('CHROMOSOME',chrom)
-            xlim=max(physmap[i].values())                ## left-most position
-            for w_left in range(0,xlim,int(w_size_rec)):
-                pc=100.0*w_left/xlim
-                sys.stdout.write("%3.2f %% \r"%pc)
-                sys.stdout.flush()
-                w_right=w_left+w_size_rec
-                p_xi=[] ## expected number of CO in interval
-                for p in pere.values():
-                    res=p.oi_xi(chrom,w_left,w_right)
-                    p_xi+=res[0]
-                sxi=np.array([np.sum(np.random.binomial(1,p_xi,len(p_xi))) for i in range(1000)])
-                cj_dist=gamma(cj_alpha+sxi,0,1.0/(cj_beta+S_Ri_mi*1e-8*w_size_rec)).rvs(len(sxi))
-                pc=np.percentile(cj_dist,[5,95])
-                print(chrom,w_left,w_right,np.average(cj_dist),np.std(cj_dist),pc[0],pc[1],file=fout)
-                fout.flush()
-                ## random samples from posterior distribution for combined maps 
-                pseudo_obs=random.sample(cj_dist,20)
-                for i,o in enumerate(pseudo_obs):
-                    print(chrom,w_left,w_right,'family',i,o,file=fout_comb)
-    ## 60K intervals map
-    with open("results/family/SNP_array_map.txt",'w') as fout:
-        print("CONSTRUCTING SNP ARRAY RECOMBINATION MAPS")
-        print('chr','left','right','m_cj','s_cj','q5_cj','q95_cj',file=fout)
-        peres=pere.values()
-        Ri_mi={}
-        for p in peres:
-                Ri_mi[p.name]=p.Ri*len(p.meioses)/Ribar
-        for i in range(26):
-            snp_pos=sorted(physmap[i].values())
-            xlim=max(snp_pos) 
-            chrom=i+1
-            print('CHROMOSOME',chrom)
-            for i,w_left in enumerate(snp_pos[:-1]):
-                w_right=snp_pos[i+1]
-                pc=100.0*w_left/xlim
-                w_size_rec=w_right-w_left
-                sys.stdout.write("%3.2f %% \r"%pc)
-                sys.stdout.flush()
-                p_xi=[] ## list of P(CO occurs in interval) for each CO
-                nco={}
-                for p in peres:
-                    res=p.oi_xi(chrom,w_left,w_right)
-                    p_xi+=res[0]
-                    nco[p.name]=len(res[0])
-                ## get samples from the distribution of number of CO across meioses in the interval
-                nsamp=1000
-                sxi=np.zeros(nsamp,dtype=np.float64)
-                for samp in range(nsamp):
-                    oxi=np.random.binomial(1,p_xi,len(p_xi))
-                    sxi[samp]=np.sum(oxi)
-                ## get posterior samples of rec. rate giv. sxi
-                cj_dist=gamma(cj_alpha+sxi,0,1.0/(cj_beta+S_Ri_mi*1e-8*w_size_rec)).rvs(len(sxi))
-                ## empirical quantiles on rec. rate.
-                pc=np.percentile(cj_dist,[5,95])
-                ## print out summary stats on c_j
-                print(chrom,w_left,w_right,np.average(cj_dist),np.std(cj_dist),pc[0],pc[1],file=fout)
-                fout.flush()
+
+
+def main(args):
+    if len(args)<1:
+        print("Usage: yapp recomb <prfx>")
+        sys.exit(1)
+    prfx=args[0]
+    phaser_db = prfx+'_yapp.db'
+    logging.basicConfig(format='%(asctime)s  %(levelname)s: %(message)s',
+                        datefmt='%m/%d/%Y %I:%M:%S %p',
+                        filename=prfx+'_yapp_recomb.log',filemode='w',level=logging.DEBUG)
+    logging.info("Starting YAPP RECOMB analysis")
+    analyzer = RecombAnalyser(phaser_db)
+    analyzer.run()
+    logging.info("YAPP RECOMB analysis done")
+
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
+
+
+

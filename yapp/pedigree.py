@@ -6,9 +6,7 @@ A pedigree is a directed graph of familial relationships (father, mother, offspr
 """
 import warnings
 from collections import defaultdict
-
-MALE = 0
-FEMALE = 1
+from . import MALE, FEMALE
 
 class PedNode():
     """A node in the pedigree that consists of an individual and its direct relatives.
@@ -341,7 +339,7 @@ class Pedigree():
         try:
             indiv = self.nodes[offspring]
         except KeyError:
-            self.add_indiv(son)
+            self.add_indiv(offspring)
             indiv = self.nodes[offspring]
 
         try:

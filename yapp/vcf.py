@@ -11,6 +11,7 @@ from cyvcf2 import VCF
 modes_avail=['genotype','inbred','phased','likelihood']
 default_mode=modes_avail[0]
 
+
 def geno2int(a1,a2):
     if a1 == -1 or a2 == -1:
         return -1
@@ -80,7 +81,7 @@ def vcf_chunk_regions(fname, chunksize=-1):
         regions = new_regions
     return regions
                        
-def vcf2fph(fname, mode='genotype', samples=None, reg=None,maf=0.01, varids=None):
+def vcf2fph(fname, mode=default_mode, samples=None, reg=None,maf=0.01, varids=None):
     """Parses a VCF file and returns data arrays usable with 
     the fastphase package
 
