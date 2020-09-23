@@ -12,6 +12,11 @@ from collections import defaultdict
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.stats import gamma,binom, poisson
+try:
+    from tqdm import tqdm
+    has_tqdm=True
+except:
+    has_tqdm=False
 from . import family_phaser, MALE, FEMALE
 
 
@@ -112,7 +117,11 @@ class RecombAnalyser():
     def set_informative_meioses(self):
         """ Identify informative meioses for each parent """
         logging.info("Set Informative meioses")
+        if has_tqdm:
+            pbar= tqdm(total=len(self.phaser.regions)*len(self.parents))
         for reg in self.phaser.regions:
+            if has_tqdm:
+                pbar.set_description(f"Processing {reg}")
             snps = self.phaser.vcf['variants'][reg]
             pos = np.array([ x[2] for x in snps])
             mids = np.array( [ 0.5*(x+y) for x,y in zip(pos[:-1],pos[1:])])
@@ -135,6 +144,8 @@ class RecombAnalyser():
                 par.set_n_info_meioses(chrom, mids, n_meio_info)
                 for pp in range(0,max(pos), 1000000):
                     logging.debug(f"{indiv}:{chrom} {pp} {par.n_info_meioses(chrom,pp)}")
+                if has_tqdm:
+                    pbar.update(1)
         for sex in self.size_covered:
             for chrom in self.size_covered[sex]:
                 logging.info(f"sex:{sex} chrom:{chrom} size:{self.size_covered[sex][chrom]} Mb")
@@ -142,16 +153,20 @@ class RecombAnalyser():
     def identify_crossovers(self, recrate = 1):
         logging.info("Gathering crossovers")
         recmaps = self.phaser.recmap(recrate)
+        if has_tqdm:
+            pbar= tqdm(total=len(self.phaser.regions)*len(self.phaser.pedigree.nodes))
+   
         for reg in self.phaser.regions:
+            if has_tqdm:
+                pbar.set_description(f"Processing {reg}")
             logging.info(f"Working on : {reg}")
             chrom_pairs = self.phaser.phases[reg]
             recmap=recmaps[reg]
             chrom = reg2chr(reg)
             snps = self.phaser.vcf['variants'][reg]
             pos = np.array([ x[2] for x in snps])
-            logging.info("1. Infer Segregation Indicators")
             for node in self.phaser.pedigree:
-                logging.info(f"{node.indiv} -- [ "
+                logging.debug(f"{node.indiv} -- [ "
                       f"sex:{node.sex} "
                       f"gen:{node.gen} "
                       f"par:{(node.father!=None)+(node.mother!=None)} "
@@ -179,6 +194,9 @@ class RecombAnalyser():
                         cos=self.get_crossovers(chpair.si_mat)
                         for x,y in cos:
                             par.add_offspring_CO(node.indiv, chrom, pos[x],pos[y])
+                if has_tqdm:
+                    pbar.update(1)
+ 
         for name,par in self.parents.items():
             to_rm=[]
             for off in par.meioses:
@@ -189,10 +207,18 @@ class RecombAnalyser():
                     to_rm.append(off)
                 elif pval < 1e-3:
                     logging.info(f"par:{name} off:{off} sex:{par.sex} nco:{len(par.meioses[off])} "
-                                    f"pval:{pval:.3g} -> Number of COs seems somewaht unlikely.")
+                                    f"pval:{pval:.3g} -> Number of COs seems somewhat unlikely.")
             for off in to_rm:
                 del par.meioses[off]
-                    
+    
+    def write_crossovers(self, prefix):
+        with open(prefix+'_yapp_recombinations.txt','w') as fout:
+            print("parent sex offspring chrom left right",file=fout)
+            for name, par in self.parents.items():
+                for off in par.meioses:
+                    for co in par.meioses[off]:
+                        print(f"{name} {((par.sex==None) and 'U') or ((par.sex==MALE) and 'M' or 'F')} {off} "
+                              f"{co.chrom} {co.left} {co.right}",file=fout)
 class Parent():
     '''
     Class for storing information for each parent
@@ -354,7 +380,7 @@ class CrossingOver():
                 
     def oi_xi(self, w_left, w_right):
         '''
-        Computes the probability that the crossing over occured between in the window between w_left and w_right
+        Computes the probability that the crossing over occured n the window between w_left and w_right
         '''
         if (w_right < self.left ) or (w_left > self.right):
             ## no overlap
@@ -397,10 +423,11 @@ def main(args):
     phaser_db = prfx+'_yapp.db'
     logging.basicConfig(format='%(asctime)s  %(levelname)s: %(message)s',
                         datefmt='%m/%d/%Y %I:%M:%S %p',
-                        filename=prfx+'_yapp_recomb.log',filemode='w',level=logging.DEBUG)
+                        filename=prfx+'_yapp_recomb.log',filemode='w',level=logging.INFO)
     logging.info("Starting YAPP RECOMB analysis")
     analyzer = RecombAnalyser(phaser_db)
     analyzer.run()
+    analyzer.write_crossovers(prfx)
     logging.info("YAPP RECOMB analysis done")
 
 
