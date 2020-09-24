@@ -77,8 +77,43 @@ for conducting analyses with other `yapp` commands.
 from transmitted gametes. This idea was developped by Aurélie Favier
 during her PhD with Simon de Givry and Andres Legarra.
 
-[Favier, Aurélie (2011). Décompositions fonctionnelles et
-structurelles dans les modèles graphiques probabilistes appliquées à
-la reconstruction d'haplotypes.](http://thesesups.ups-tlse.fr/1527/)
+<!-- [Favier, Aurélie (2011). Décompositions fonctionnelles et -->
+<!-- structurelles dans les modèles graphiques probabilistes appliquées à -->
+<!-- la reconstruction d'haplotypes.](http://thesesups.ups-tlse.fr/1527/) -->
+
+[A. Favier, J-M. Elsen, S. de Givry, and A. Legarra
+Optimal haplotype reconstruction in half-sib families
+In ICLP-10 workshop on Constraint Based Methods for Bioinformatics,
+Edinburgh, UK, 2010 ](https://miat.inrae.fr/degivry/Favier10a.pdf)
 
 ### `recomb`
+
+## Other Utilities
+
+### `fphtrain```
+
+`fphtrain` trains a fastphase model on a set of individuals. It takes
+as input a vcf_file (gzipped and indexed) and a number of haplotype
+clusters. Genotype data can be read assuming different modes:
+
+- genotype : unphased diploids
+- phased : phased diploids. The phase information is taken from the
+  VCF file (| sign). Unphased genotype are treated as missing.
+- inbred : completely homozygous genotypes, treated as
+  haploids. Heterozygote genotypes are treated as missing.
+- likelihood : used the GL field from the VCF corresponding to the
+  likelihood of each genotype on a PHRED scale (-10*log10(lik)).
+  
+#### Citation
+
+[Scheet P, Stephens M. A fast and flexible statistical model for
+large-scale population genotype data: applications to inferring
+missing genotypes and haplotypic phase. Am J Hum
+Genet. 2006;78(4):629-644. doi:10.1086/502802](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1424677/)
+
+If you use the likelihood mode, cite:
+
+[Linkage Disequilibrium-Based Quality Control for Large-Scale Genetic
+Studies Scheet P, Stephens M (2008) Linkage Disequilibrium-Based
+Quality Control for Large-Scale Genetic Studies. PLOS Genetics 4(8):
+e1000147.](https://doi.org/10.1371/journal.pgen.1000147)
