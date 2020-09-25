@@ -17,8 +17,10 @@ try:
     has_tqdm=True
 except:
     has_tqdm=False
+
 from . import family_phaser, MALE, FEMALE
 
+logger = logging.getLogger(__name__)
 
 ##import matplotlib.pyplot as plt
 
@@ -57,7 +59,7 @@ class RecombAnalyser():
             par = Parent(pednode.indiv, pednode.sex)
             self.parents[pednode.indiv]=par
         else:
-            logging.warning(f"Trying to create the parent {pednode.indiv} multiple times")
+            logger.warning(f"Trying to create the parent {pednode.indiv} multiple times")
 
     @property
     def genome_size(self):
@@ -116,7 +118,7 @@ class RecombAnalyser():
             
     def set_informative_meioses(self):
         """ Identify informative meioses for each parent """
-        logging.info("Set Informative meioses")
+        logger.info("Set Informative meioses")
         if has_tqdm:
             pbar= tqdm(total=len(self.phaser.regions)*len(self.parents))
         for reg in self.phaser.regions:
