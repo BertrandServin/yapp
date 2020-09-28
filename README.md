@@ -44,17 +44,25 @@ commands. The basic syntax is :
 ```bash
 yapp <command> <args1, args2, ..., argsN>
 ```
+Most commands take has input files a [VCF file](http://samtools.github.io/hts-specs/VCFv4.2.pdf), its
+index obtained with [`tabix`](http://www.htslib.org/doc/tabix.html), and a [FAM
+file](https://www.cog-genomics.org/plink/1.9/formats#fam) with family
+information. `yapp` writes logs of all commands to a common log file ending in `_yapp.log`. 
+This way all steps of an analysis will be logged in the same place (the file is not overwritten).
 
 Available commands are:
+
+### `mendel`
+
+This command performs checks for Mendelian errors between all parent -> offspring pairs. 
+It will identify pairs that exhibit a large number of such errors and are therefore 
+likely to be pedigree errors. It produces a new FAM file where such errors have been
+removed and that can be used in subsequent analyses.
 
 ### `phase`
 
 The `phase` command is used to infer gametic phase and segregation
-indicators in a genotyped pedigree. Its input consists of three files
-a [VCF file](http://samtools.github.io/hts-specs/VCFv4.2.pdf), its
-index obtained with [`tabix`](http://www.htslib.org/doc/tabix.html), and a [FAM
-file](https://www.cog-genomics.org/plink/1.9/formats#fam) with family
-information. The usage is:
+indicators in a genotyped pedigree. The usage is:
 
 ```bash
 yapp phase <prfx>
@@ -90,7 +98,7 @@ Edinburgh, UK, 2010 ](https://miat.inrae.fr/degivry/Favier10a.pdf)
 
 ## Other Utilities
 
-### `fphtrain```
+### `fphtrain`
 
 `fphtrain` trains a fastphase model on a set of individuals. It takes
 as input a vcf_file (gzipped and indexed) and a number of haplotype
@@ -114,6 +122,4 @@ Genet. 2006;78(4):629-644. doi:10.1086/502802](https://www.ncbi.nlm.nih.gov/pmc/
 If you use the likelihood mode, cite:
 
 [Linkage Disequilibrium-Based Quality Control for Large-Scale Genetic
-Studies Scheet P, Stephens M (2008) Linkage Disequilibrium-Based
-Quality Control for Large-Scale Genetic Studies. PLOS Genetics 4(8):
-e1000147.](https://doi.org/10.1371/journal.pgen.1000147)
+Studies Scheet P, Stephens M (2008)](https://doi.org/10.1371/journal.pgen.1000147)
