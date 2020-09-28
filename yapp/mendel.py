@@ -16,6 +16,7 @@ def genotype_vector( genotypes ):
 
 def mendel_errors( args):
     genotypes, pairs= args
+    pairs=np.array(pairs)
     from_genotypes = np.array(genotypes)[pairs[:,0],:2]
     to_genotypes = np.array(genotypes)[pairs[:,1],:2]
     fg = genotype_vector(from_genotypes)
@@ -24,6 +25,56 @@ def mendel_errors( args):
     nerr =  ((fg==0)&(tg==2))|((fg==2)&(tg==0))
     return nerr,nobs
 
+def identify_bad_pairs(pairs, merr, fpr=1e-3):
+    """Identify outliers for mendelian errors.
+
+    Starting from all pairs, outliers are identified iteratively as follows:
+
+    1. Compute overal error rate
+    2. For each pair compute the p-value (from Binomial) that data comes from the binomial
+    3. reject the null is p-value < fpr/len(pairs) (Bonferroni correction)
+    4. Remove pairs for which the null is rejected from the pair list
+
+    These steps are iterated until no pair is removed from the set.
+
+    Arguments
+    ---------
+    pairs : list of objects
+        family links
+    merr : array len(pairs) x 2
+        array of number of errors (merr[:,0]) and number of informative loci(merr[:,1])
+    fpr : float
+        false positive rate to call outliers
+
+    Returns
+    -------
+    list of objects
+        List of pairs from the input list that are outliers
+    """
+    pair2rm = []
+    pval_th = fpr/len(pairs)
+    logger.info(f"Identifying links with p < {pval_th:.2g}")
+    current_merr = merr.copy()
+    current_pairs = pairs[:]
+    while True:
+        tx_err = np.sum(current_merr[:,0])/np.sum(current_merr[:,1])
+        logger.debug(f"te : {tx_err}")
+        tmp_pairs=current_pairs[:]
+        keepidx=np.ones(len(current_pairs),dtype=np.bool)
+        for i,(p,e) in enumerate(zip(current_pairs, current_merr)):
+            pval = binom.sf(n=e[1],p=tx_err, k=e[0])
+            if pval < pval_th:
+                logger.debug(f"{p} : pbinom({e[0]}, size={e[1]},  p={tx_err}) = {pval}")
+                pair2rm.append(p)
+                tmp_pairs.remove(p)
+                keepidx[i]=False
+        if keepidx.all():
+            break
+        logger.debug(f"Start with {len(current_pairs)} -> {len(tmp_pairs)}")
+        current_pairs=tmp_pairs[:]
+        current_merr=current_merr[keepidx,:]
+    return pair2rm
+
 def main(args):
     prfx=args.prfx
     vcf_file = f"{prfx}.vcf.gz"
@@ -31,8 +82,6 @@ def main(args):
     myvcf=VCF(vcf_file, gts012=True, strict_gt=True, lazy=True)
     ped = pedigree.Pedigree.from_fam_file(fam_file)
 
-    logger = logging.getLogger('yapp')
-    
     ## Identify indices
     indiv_idx=defaultdict( lambda : -1)
     for i,v in enumerate(myvcf.samples):
@@ -51,26 +100,26 @@ def main(args):
             if indiv_idx[c.indiv]<0:
                 continue
             pairs.append((indiv_idx[node.indiv], indiv_idx[c.indiv]))
-    pairs = np.array(pairs, dtype=np.int)
+    # pairs = np.array(pairs, dtype=np.int)
 
     geno_getter = ( (s.genotypes, pairs) for s in myvcf)
-    merr = np.full_like(pairs, 0,dtype=np.int)
+    merr = np.zeros((len(pairs),2),dtype=np.int)
     with Pool(args.c) as workers:
-        for nerr,nobs in workers.imap_unordered(mendel_errors, geno_getter,chunksize=10000):
+        for nerr,nobs in workers.imap_unordered(mendel_errors, geno_getter,chunksize=50):
             merr[:,0]+=nerr
             merr[:,1]+=nobs
     tx_err=np.sum(merr[:,0])/np.sum(merr[:,1])
-    pval_th = 0.001/pairs.shape[0]
+    # pval_th = 0.001/pairs.shape[0]
 
     logger.info(f"Global Mendel Error rate : {tx_err:.2g}")
-    unset_links=[]
+    # unset_links=[]
+    unset_links = identify_bad_pairs( pairs, merr)
     with open(f"{prfx}.mendel.err","w") as fout:
-        print("parent offspring nerr nobs err.rate pvalue",file=fout)
+        print("parent offspring nerr nobs err.rate pvalue removed",file=fout)
         for (p, e) in zip(pairs, merr):
             pval = binom.sf(n=e[1],p=tx_err, k=e[0])
-            print(f"{myvcf.samples[p[0]]} {myvcf.samples[p[1]]} {e[0]} {e[1]} {e[0]/e[1]:.2g} {pval:.2g}",file=fout)
-            if pval<pval_th:
-                unset_links.append(tuple(p))
+            print(f"{myvcf.samples[p[0]]} {myvcf.samples[p[1]]} {e[0]} {e[1]} {e[0]/e[1]:.2g} {pval:.2g} {p in unset_links}",file=fout)
+            
     if len(unset_links)>0:
         logger.info(f"Saving original fam file to {prfx}.fam.orig")
         os.replace(f"{prfx}.fam",f"{prfx}.fam.orig")
