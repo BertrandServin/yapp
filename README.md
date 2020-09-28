@@ -10,9 +10,9 @@ If you find it useful for you, drop me a note on twitter
 @BertrandServin. If you want to contribute ideas or code, you are
 welcome if you know python :) 
 
-yapp and its utilities implement models and methods that have been
+yapp and its utilities implement some models and methods that have been
 invented by other people. If you use yapp it is important that you
-acknowledge the work of these authors by citing the appropriate
+acknowledge their work by citing the appropriate
 references. These will depend on the way you use the software. The
 documentation below provides the relevant citations.
 
