@@ -39,7 +39,7 @@ implementing my initial ideas on the software.
 ## Usage
 
 `yapp` has a command line interface that is used to launch different
-commands. The basic syntax is :
+commands. Type `yapp -h` for detailed help. The basic syntax is :
 
 ```bash
 yapp <command> <args1, args2, ..., argsN>
@@ -50,9 +50,16 @@ file](https://www.cog-genomics.org/plink/1.9/formats#fam) with family
 information. `yapp` writes logs of all commands to a common log file ending in `_yapp.log`. 
 This way all steps of an analysis will be logged in the same place (the file is not overwritten).
 
+`yapp` commands try to use multiple processors when required. By default they will use all that are 
+available. To control this number uise the `-c` option. 
+
 Available commands are:
 
 ### `mendel`
+
+```bash
+yapp phase <prfx>
+```
 
 This command performs checks for Mendelian errors between all parent -> offspring pairs. 
 It will identify pairs that exhibit a large number of such errors and are therefore 
@@ -74,14 +81,13 @@ where `prfx` is the prefix of **all** input files :
 file to VCF, you must do so using `--recode vcf-iid` so that sample
 names in the resulting VCF do no include the family-ID.
 
-The events are logged in `<path/to/prefix>_yapp_phase.log`. The output
-files produced are a phased VCF `<path/to/prefix>_phased.vcf.gz` and a
+The output files produced are a phased VCF `<path/to/prefix>_phased.vcf.gz` and a
 binary file `<path/to/prefix>_yapp.db`. This binary file is useful
 for conducting analyses with other `yapp` commands.
 
 #### Citation
 `yapp phase` uses a Weighted Constraints Satisfaction Problem solver,
-[https://miat.inrae.fr/toulbar2/](ToulBar2), to infer parental phase
+[ToulBar2](https://miat.inrae.fr/toulbar2/), to infer parental phase
 from transmitted gametes. This idea was developped by Aurélie Favier
 during her PhD with Simon de Givry and Andres Legarra.
 
