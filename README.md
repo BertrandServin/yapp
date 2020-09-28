@@ -6,8 +6,8 @@ softwares such as LINKPHASE, FIMPUTE, AlphaPhase ... . I
 developed it for my own research to have a tool that is opensource and
 that I can tweak to my own needs. 
 
-If you find it useful for you, drop me a note on twitter
-@BertrandServin. If you want to contribute ideas or code, you are
+If you find it useful for you, drop me a note (*e.g.* on twitter
+@BertrandServin). If you want to contribute ideas or code, you are
 welcome if you know python :) 
 
 yapp and its utilities implement some models and methods that have been
@@ -44,21 +44,21 @@ commands. Type `yapp -h` for detailed help. The basic syntax is :
 ```bash
 yapp <command> <args1, args2, ..., argsN>
 ```
-Most commands take has input files a [VCF file](http://samtools.github.io/hts-specs/VCFv4.2.pdf), its
+Most commands take as input files a [VCF file](http://samtools.github.io/hts-specs/VCFv4.2.pdf), its
 index obtained with [`tabix`](http://www.htslib.org/doc/tabix.html), and a [FAM
 file](https://www.cog-genomics.org/plink/1.9/formats#fam) with family
 information. `yapp` writes logs of all commands to a common log file ending in `_yapp.log`. 
 This way all steps of an analysis will be logged in the same place (the file is not overwritten).
 
 `yapp` commands try to use multiple processors when required. By default they will use all that are 
-available. To control this number uise the `-c` option. 
+available. To control this number use the `-c` option. 
 
 Available commands are:
 
 ### `mendel`
 
 ```bash
-yapp phase <prfx>
+yapp mendel <prfx>
 ```
 
 This command performs checks for Mendelian errors between all parent -> offspring pairs. 
