@@ -81,7 +81,7 @@ def vcf_chunk_regions(fname, chunksize=-1):
         regions = new_regions
     return regions
                        
-def vcf2fph(fname, mode=default_mode, samples=None, reg=None,maf=0.01, varids=None):
+def vcf2fph(fname, mode=default_mode, samples=None, reg=None,maf=0.01, varids=None, genotypes=True):
     """Parses a VCF file and returns data arrays usable with 
     the fastphase package
 
@@ -111,6 +111,8 @@ def vcf2fph(fname, mode=default_mode, samples=None, reg=None,maf=0.01, varids=No
         Minimum allele frequency to include variants
     varids : list
         List of variants IDs to extract. Only variants found in vcf are returned, irrespective of MAF.
+    genotypes : bool
+        Return Genotype data. For large files this can be quite big.
     Returns
     -------
     dict
@@ -154,30 +156,31 @@ def vcf2fph(fname, mode=default_mode, samples=None, reg=None,maf=0.01, varids=No
         variants_summary[r]=[(s.ID,s.CHROM,s.POS,s.REF,s.ALT[0]) for s in variants[r]]
         fphdata[r] = {}
         trueregions.append(r)
-        for i, sid in enumerate(smp):
-            if mode == 'likelihood':
-                fphdata[r][sid] = phred2ln( np.array([ [s.gt_phred_ll_homref[i],
-                                                        s.gt_phred_ll_het[i],
-                                                        s.gt_phred_ll_homalt[i]] for s in variants[r]],
-                                                     dtype=np.float))
-            else:
-                geno = [s.genotypes[i] for s in variants[r]]
-                if mode =='genotype':
-                    fphdata[r][sid] = np.array([geno2int(*g[:2]) for g in geno], dtype=np.int)
-                elif mode == 'inbred':
-                    fphdata[r][sid] = np.array([geno2hap(*g[:2]) for g in geno], dtype=np.int)
-                elif mode == 'phased':
-                    h1=[]
-                    h2=[]
-                    for g in geno:
-                        if g[2]:
-                            h1.append(g[0])
-                            h2.append(g[1])
-                        else:
-                            h1.append(-1)
-                            h2.append(-1)
-                    fphdata[r][sid+'.h1']=np.array(h1,dtype=np.int)
-                    fphdata[r][sid+'.h2']=np.array(h2,dtype=np.int)
+        if genotypes:
+            for i, sid in enumerate(smp):
+                if mode == 'likelihood':
+                    fphdata[r][sid] = phred2ln( np.array([ [s.gt_phred_ll_homref[i],
+                                                            s.gt_phred_ll_het[i],
+                                                            s.gt_phred_ll_homalt[i]] for s in variants[r]],
+                                                         dtype=np.float))
+                else:
+                    geno = [s.genotypes[i] for s in variants[r]]
+                    if mode =='genotype':
+                        fphdata[r][sid] = np.array([geno2int(*g[:2]) for g in geno], dtype=np.int)
+                    elif mode == 'inbred':
+                        fphdata[r][sid] = np.array([geno2hap(*g[:2]) for g in geno], dtype=np.int)
+                    elif mode == 'phased':
+                        h1=[]
+                        h2=[]
+                        for g in geno:
+                            if g[2]:
+                                h1.append(g[0])
+                                h2.append(g[1])
+                            else:
+                                h1.append(-1)
+                                h2.append(-1)
+                        fphdata[r][sid+'.h1']=np.array(h1,dtype=np.int)
+                        fphdata[r][sid+'.h2']=np.array(h2,dtype=np.int)
     return {
         'regions' : trueregions,
         'samples' : smp,
