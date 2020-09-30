@@ -9,6 +9,7 @@ import sys
 import logging
 import warnings
 from collections import defaultdict
+import tempfile
 from multiprocessing import Pool, cpu_count
 import bz2
 import pickle
@@ -16,6 +17,11 @@ import numpy as np
 from scipy.stats import binom
 import cyvcf2 
 from . import vcf, gamete, pedigree, MALE, FEMALE
+try:
+    from tqdm import tqdm
+    has_tqdm=True
+except:
+    has_tqdm=False
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +38,7 @@ def wcsp_phase( args):
         raise
     else:
         p.update_unknown_gamete(wcsp_gam)
-        logger.info(f"{node.indiv} -- [ "
+        logger.debug(f"{node.indiv} -- [ "
                      f"sex:{node.sex} "
                      f"gen:{node.gen} "
                      f"par:{(node.father!=None)+(node.mother!=None)} "
@@ -252,13 +258,17 @@ class ChromosomePair():
         return nmiss
 
 class Phaser():
-    def __init__(self,vcf_file,ped_file,**kwargs):
+    def __init__(self,vcf_file,ped_file, out_prfx):
         ped=pedigree.Pedigree.from_fam_file(ped_file)
-        my_vcf=vcf.vcf2fph(vcf_file,**kwargs)
-        self.vcf = my_vcf
+        self.vcf=vcf.vcf2fph(vcf_file, genotypes=False)
+        self.vcf_out_file_name = f"{out_prfx}_phased.vcf.gz"
+        v = cyvcf2.VCF(vcf_file, lazy=True)
+        w = cyvcf2.Writer(self.vcf_out_file_name, v)
+        w.write_header()
+        w.close()
         self.vcf_file_name=vcf_file
         self.ped_file_name=ped_file
-        self.err=1e-3 
+        self.err=1e-3
         ## individuals
         pedindivs = [x for x in ped.nodes]
         self.ignored_indivs=[]
@@ -268,11 +278,11 @@ class Phaser():
                 self.ignored_indivs.append(rm_node)
         self.pedigree=ped
         ## Init phases
-        self.phases=defaultdict(dict)
-        for reg in self.regions:
-            genotypes=self.vcf['data'][reg]
-            for node in self.pedigree:
-                self.phases[reg][node.indiv]=ChromosomePair(genotypes[node.indiv])
+        # self.phases=defaultdict(dict)
+        # for reg in self.regions:
+        #     genotypes=self.vcf['data'][reg]
+        #     for node in self.pedigree:
+        #         self.phases[reg][node.indiv]=ChromosomePair(genotypes[node.indiv])
                 
     @classmethod
     def from_prefix(cls,prfx,**kwargs):
@@ -290,7 +300,7 @@ class Phaser():
         """
         vcf_file=f"{prfx}.vcf.gz"
         fam_file=f"{prfx}.fam"
-        return cls(vcf_file,fam_file,**kwargs)
+        return cls(vcf_file,fam_file,prfx)
     
     @property
     def regions(self):
@@ -318,56 +328,35 @@ class Phaser():
             distances[distances<100]=100
             res[reg] = distances * recrate * 1e-8
         return res
-    
-    def run(self):
-        logger.info("***** Phasing from genotypes *****")
-        self.phase_samples_from_genotypes()
-        nhet = 0
-        nresolved = 0
-        for reg in self.phases:
-            for p in self.phases[reg].values():
-                nhet += p.nhet
-                nresolved += p.nresolved
-        logger.info(f"Resolved {nresolved} out of {nhet} phases : {100*nresolved/nhet:.1f}%")
-        sys.stdout.flush()
-        print("***** Phasing from segregations *****")
-        self.phase_samples_from_segregations()
-        nhet = 0
-        nresolved = 0
-        for reg in self.phases:
-            for p in self.phases[reg].values():
-                nhet += p.nhet
-                nresolved += p.nresolved
-        logger.info(f"Resolved {nresolved} out of {nhet} phases : {100*nresolved/nhet:.1f}%")
-        # print("***** Looking for crossovers *****")
-        # recombinations = self.identify_crossovers(self.phases)
-        ##self.write_phased_vcf('test.vcf.gz')
-        # return { 'phases' : phases,
-        #          'recombinations' : recombinations }
+
 
     def write_phased_vcf(self,fname):
         """Write phase information in a VCF file
         """
-        vcf_tmpl = cyvcf2.VCF(self.vcf_file_name, gts012=True, lazy=True)
-        w = cyvcf2.Writer(fname, vcf_tmpl)
-        snp_mapping = {}
-        for s in vcf_tmpl:
-            snp_mapping[(s.ID,s.CHROM,s.POS)]=s
-        smp_mapping = {}
-        for n in self.pedigree:
-            smp_mapping[n.indiv]=vcf_tmpl.samples.index(n.indiv)
-        for reg in self.regions:
-            snps = self.vcf['variants'][reg]
-            variants = [snp_mapping[tuple(x[:3])] for x in snps]
-            for i,v in enumerate(variants):
-                ph_genotypes=v.genotypes[:]
-                for node in self.pedigree:
-                    ph = self.phases[reg][node.indiv]
-                    nidx=smp_mapping[node.indiv]
-                    if ph.H[0].haplotype[i]>-1:
-                        ph_genotypes[nidx]=[ph.paternal_gamete.haplotype[i], ph.maternal_gamete.haplotype[i], 1]
-                v.genotypes=ph_genotypes
-                w.write_record(v)
+        pass
+        ##vcf_tmpl = cyvcf2.VCF(self.vcf_file_name, lazy=True)
+        ## create a temporary file to dump results
+        # fd,tmpfile_name=tempfile.mkstemp(suffix='.vcf')
+        # w = cyvcf2.Writer(tmpfile_name, vcf_tmpl)
+        # w.header_written=True
+        # snp_mapping = {}
+        # for s in vcf_tmpl:
+        #     snp_mapping[(s.ID,s.CHROM,s.POS)]=s
+        # smp_mapping = {}
+        # for n in self.pedigree:
+        #     smp_mapping[n.indiv]=vcf_tmpl.samples.index(n.indiv)
+        # for reg in self.regions:
+        #     snps = self.vcf['variants'][reg]
+        #     variants = [snp_mapping[tuple(x[:3])] for x in snps]
+        #     for i,v in enumerate(variants):
+        #         ph_genotypes=v.genotypes[:]
+        #         for node in self.pedigree:
+        #             ph = self.phases[reg][node.indiv]
+        #             nidx=smp_mapping[node.indiv]
+        #             if ph.H[0].haplotype[i]>-1:
+        #                 ph_genotypes[nidx]=[ph.paternal_gamete.haplotype[i], ph.maternal_gamete.haplotype[i], 1]
+        #         v.genotypes=ph_genotypes
+        #         w.write_record(v)
     
     def save(self,fname):
         """Save Phaser internal state to file"""
@@ -383,7 +372,34 @@ class Phaser():
         return obj
         
 
-    def phase_samples_from_segregations(self, recrate=1):
+    def get_genotypes(self, region):
+        tempvcf_data = vcf.vcf2fph(self.vcf_file_name, reg=region, genotypes=True)
+        return tempvcf_data['data'][region]
+        
+    def run(self):
+        for reg in self.regions:
+            logger.info(f"Working on region {reg}")
+            phases = self.phase_samples_from_genotypes(reg)
+            nhet = 0
+            nresolved = 0
+            for p in phases.values():
+                nhet += p.nhet
+                nresolved += p.nresolved
+            logger.info(f"Resolved {nresolved} out of {nhet} phases : {100*nresolved/nhet:.1f}%")
+            sys.stdout.flush()
+            phases = self.phase_samples_from_segregations(reg, phases=phases)
+            nhet = 0
+            nresolved = 0
+            for p in phases.values():
+                nhet += p.nhet
+                nresolved += p.nresolved
+            logger.info(f"Resolved {nresolved} out of {nhet} phases : {100*nresolved/nhet:.1f}%")
+        # print("***** Looking for crossovers *****")
+        # recombinations = self.identify_crossovers(self.phases)
+        ##self.write_phased_vcf('test.vcf.gz')
+        # return { 'phases' : phases,
+        #          'recombinations' : recombinations }
+    def phase_samples_from_segregations(self, region, phases=None, recrate=1):
         """Infer segregation indicators in the pedigree.
 
         Arguments
@@ -394,76 +410,89 @@ class Phaser():
         -------
         update phases
         """
-        logger.info("Phasing from segregations")
+        logger.info("Phasing samples from segregations")
         recmaps = self.recmap(recrate)
-        for reg in self.vcf['regions']:
-            logger.info(f"Working on : {reg}")
-            chrom_pairs = self.phases[reg]
-            recmap=recmaps[reg]
-            logger.info("1. Infer Segregation Indicators")
-            pat_seg_tasks=[]
-            mat_seg_tasks=[]
-            for node in self.pedigree:
-                chpair = chrom_pairs[node.indiv]
-                logger.debug(f"{node.indiv} -- [ "
-                              f"sex:{node.sex} "
-                              f"gen:{node.gen} "
-                              f"par:{(node.father!=None)+(node.mother!=None)} "
-                              f"off:{len(node.children)} "
-                              f"nhet : {chpair.nhet}"
-                              f"nresolved : {chpair.nresolved} ]")
-                if node.father:
-                    pat_seg_tasks.append( ( node.indiv, chrom_pairs[node.father.indiv], chpair.paternal_gamete, recmap))
-                if node.mother:
-                    mat_seg_tasks.append( ( node.indiv, chrom_pairs[node.mother.indiv], chpair.maternal_gamete, recmap))
+        if phases == None:
+            chrom_pairs = self.phases_from_genotypes(region)
+        else:
+            chrom_pairs = phases
+        recmap=recmaps[region]
+        logger.debug("1. Infer Segregation Indicators")
+        pat_seg_tasks=[]
+        mat_seg_tasks=[]
+        for node in self.pedigree:
+            chpair = chrom_pairs[node.indiv]
+            logger.debug(f"{node.indiv} -- [ "
+                          f"sex:{node.sex} "
+                          f"gen:{node.gen} "
+                          f"par:{(node.father!=None)+(node.mother!=None)} "
+                          f"off:{len(node.children)} "
+                          f"nhet : {chpair.nhet}"
+                          f"nresolved : {chpair.nresolved} ]")
+            if node.father:
+                pat_seg_tasks.append( ( node.indiv, chrom_pairs[node.father.indiv], chpair.paternal_gamete, recmap))
+            if node.mother:
+                mat_seg_tasks.append( ( node.indiv, chrom_pairs[node.mother.indiv], chpair.maternal_gamete, recmap))
 
-            with Pool(cpu_count()) as workers:
-                for indiv, segind in workers.imap(run_segregation_task, pat_seg_tasks):
-                    node = self.pedigree.nodes[indiv]
-                    chpair_p = chrom_pairs[node.father.indiv]
-                    chpair = chrom_pairs[node.indiv]
-                    chpair.si_pat=segind
-                    new_gam = chpair_p.get_transmitted_from_segregation(chpair.si_pat)
-                    nmiss=chpair.update_paternal_gamete(new_gam)
-                    if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err):
-                        logger.warning(f"{node.father.indiv}[pat] -> {node.indiv} :{nmiss} mismatches : possible pedigree error")
-                for indiv, segind in workers.imap(run_segregation_task, mat_seg_tasks):
-                    node = self.pedigree.nodes[indiv]
-                    chpair_m = chrom_pairs[node.mother.indiv]
-                    chpair = chrom_pairs[node.indiv]
-                    chpair.si_mat=segind
-                    new_gam = chpair_m.get_transmitted_from_segregation(chpair.si_mat)
-                    nmiss=chpair.update_maternal_gamete(new_gam)
-                    if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err):
-                        logger.warning(f"{node.mother.indiv}[mat] -> {node.indiv} :{nmiss} mismatches : possible pedigree error")
-                   
-            logger.debug("2. Update parental phases")
-            wcsp_tasks=[]
-            for node in self.pedigree:
-                p=chrom_pairs[node.indiv]
-                logger.debug(f"{node.indiv} -- [ "
-                      f"sex:{node.sex} "
-                      f"gen:{node.gen} "
-                      f"par:{(node.father!=None)+(node.mother!=None)} "
-                      f"off:{len(node.children)} "
-                      f"nhet : {p.nhet} ]")
-                children_gametes = {}
-                for child in node.children:
-                    chpair = chrom_pairs[child.indiv]
-                    if child.father is node:
-                        children_gametes[child.indiv]=chpair.paternal_gamete
-                    elif child.mother is node:
-                        children_gametes[child.indiv]=chpair.maternal_gamete
-                if len(node.children)>0:
-                    wcsp_tasks.append((node,p,children_gametes))
-            
-            logger.info(f"Phasing {len(wcsp_tasks)} with  WCSP")
-            with Pool(cpu_count()) as workers:
-                for indiv,pair in workers.imap(wcsp_phase,wcsp_tasks):
-                    del self.phases[reg][indiv]
-                    self.phases[reg][indiv]=pair
-        
-    def phase_samples_from_genotypes(self):
+        if has_tqdm:
+            pbar = tqdm(total= len(pat_seg_tasks)+len(mat_seg_tasks))
+            pbar.set_description("Building segregation indicators")
+        with Pool(cpu_count()) as workers:
+            for indiv, segind in workers.imap(run_segregation_task, pat_seg_tasks):
+                node = self.pedigree.nodes[indiv]
+                chpair_p = chrom_pairs[node.father.indiv]
+                chpair = chrom_pairs[node.indiv]
+                chpair.si_pat=segind
+                new_gam = chpair_p.get_transmitted_from_segregation(chpair.si_pat)
+                nmiss=chpair.update_paternal_gamete(new_gam)
+                if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
+                    logger.warning(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch : possible pedigree error")
+                if has_tqdm:
+                    pbar.update(1)
+            for indiv, segind in workers.imap(run_segregation_task, mat_seg_tasks):
+                node = self.pedigree.nodes[indiv]
+                chpair_m = chrom_pairs[node.mother.indiv]
+                chpair = chrom_pairs[node.indiv]
+                chpair.si_mat=segind
+                new_gam = chpair_m.get_transmitted_from_segregation(chpair.si_mat)
+                nmiss=chpair.update_maternal_gamete(new_gam)
+                if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
+                    logger.warning(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch : possible pedigree error")
+                if has_tqdm:
+                    pbar.update(1)
+
+        logger.debug("2. Update parental phases")
+        wcsp_tasks=[]
+        for node in self.pedigree:
+            p=chrom_pairs[node.indiv]
+            logger.debug(f"{node.indiv} -- [ "
+                  f"sex:{node.sex} "
+                  f"gen:{node.gen} "
+                  f"par:{(node.father!=None)+(node.mother!=None)} "
+                  f"off:{len(node.children)} "
+                  f"nhet : {p.nhet} ]")
+            children_gametes = {}
+            for child in node.children:
+                chpair = chrom_pairs[child.indiv]
+                if child.father is node:
+                    children_gametes[child.indiv]=chpair.paternal_gamete
+                elif child.mother is node:
+                    children_gametes[child.indiv]=chpair.maternal_gamete
+            if len(node.children)>0:
+                wcsp_tasks.append((node,p,children_gametes))
+
+        logger.info(f"Phasing {len(wcsp_tasks)} with  WCSP")
+        if has_tqdm:
+            pbar = tqdm(total=len(wcsp_tasks))
+            pbar.set_description("WCSP phasing")
+        with Pool(cpu_count()) as workers:
+            for indiv,pair in workers.imap(wcsp_phase,wcsp_tasks):
+                del chrom_pairs[indiv]
+                chrom_pairs[indiv]=pair
+                pbar.update(1)
+        return chrom_pairs
+
+    def phase_samples_from_genotypes(self, region, phases=None):
         """Reconstruct paternal and maternal gametes in the pedigree 
         based on observed genotypes.
         Returns
@@ -472,86 +501,99 @@ class Phaser():
             regions as keys, dict( name : ChromosomePair) as value
         """
         logger.info("Phasing samples from genotypes")
-        for reg in self.vcf['regions']:
-            logger.info(f"Working on : {reg}")
-            genotypes = self.vcf['data'][reg]
-            chrom_pairs = self.phases[reg]
-            wcsp_tasks=[]
+        genotypes = self.get_genotypes(region)
+        if phases == None:
+            chrom_pairs = {}
             for node in self.pedigree:
-                name = node.indiv
-                logger.debug(f"{name} -- [ "
-                              f"sex:{node.sex} "
-                              f"gen:{node.gen} "
-                              f"par:{(node.father!=None)+(node.mother!=None)} "
-                              f"off:{len(node.children)} ]")
-                p = chrom_pairs[name]
+                chrom_pairs[node.indiv]=ChromosomePair(genotypes[node.indiv])
+        else:
+            chrom_pairs = phases
+        wcsp_tasks=[]
+        if has_tqdm:
+            pbar = tqdm(total=len(self.pedigree.nodes))
+        for node in self.pedigree:
+            name = node.indiv
+            if has_tqdm:
+                pbar.set_description(f"Processing {name:<20}")
+            logger.debug(f"{name} -- [ "
+                          f"sex:{node.sex} "
+                          f"gen:{node.gen} "
+                          f"par:{(node.father!=None)+(node.mother!=None)} "
+                          f"off:{len(node.children)} ]")
+            p = chrom_pairs[name]
 
-                logger.debug("1. Initialize gametes")
-                logger.debug(f"nhet : {p.nhet}")
-                logger.debug(f"geno :",*[f"{x:2}" for x in p.g])
-                logger.debug(f".pat : {p.paternal_gamete}")
-                logger.debug(f".mat : {p.maternal_gamete}")
-                logger.debug("2. Update gametes from Parents")
-                if node.father != None:
-                    geno_p = genotypes[node.father.indiv]
-                    gam_p = gamete.Gamete.from_genotype(geno_p)
-                    nmiss=p.update_paternal_gamete(gam_p)
-                    if (nmiss[0]+nmiss[1]) > qerr(p.nhet*2, self.err):
-                        logger.warning(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet}% mismatches : possible pedigree error")
+            logger.debug("1. Initialize gametes")
+            logger.debug(f"nhet : {p.nhet}")
+            logger.debug(f"geno :",*[f"{x:2}" for x in p.g])
+            logger.debug(f".pat : {p.paternal_gamete}")
+            logger.debug(f".mat : {p.maternal_gamete}")
+            logger.debug("2. Update gametes from Parents")
+            if node.father != None:
+                geno_p = genotypes[node.father.indiv]
+                gam_p = gamete.Gamete.from_genotype(geno_p)
+                nmiss=p.update_paternal_gamete(gam_p)
+                if (nmiss[0]+nmiss[1]) > qerr(p.nhet*2, self.err):
+                    logger.warning(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet}% mismatches : possible pedigree error")
 
-                if node.mother != None:
-                    geno_m = genotypes[node.mother.indiv]
-                    gam_m = gamete.Gamete.from_genotype(geno_m)
-                    nmiss = p.update_maternal_gamete(gam_m)
-                    if (nmiss[0]+nmiss[1]) > qerr(p.nhet*2, self.err):
-                        logger.warning(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet}% mismatches : possible pedigree error")
+            if node.mother != None:
+                geno_m = genotypes[node.mother.indiv]
+                gam_m = gamete.Gamete.from_genotype(geno_m)
+                nmiss = p.update_maternal_gamete(gam_m)
+                if (nmiss[0]+nmiss[1]) > qerr(p.nhet*2, self.err):
+                    logger.warning(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet}% mismatches : possible pedigree error")
 
-                logger.debug(f".pat : {p.paternal_gamete}")
-                logger.debug(f".mat : {p.maternal_gamete}")
-                logger.debug(f"nresolved : {p.nresolved}")
-                sys.stdout.flush()
-                                
+            logger.debug(f".pat : {p.paternal_gamete}")
+            logger.debug(f".mat : {p.maternal_gamete}")
+            logger.debug(f"nresolved : {p.nresolved}")
+            sys.stdout.flush()
 
-                logger.debug(f"3. Update gametes from {len(node.children)} Offsprings")
-                children_gametes = {}
-                for child in node.children:
-                    geno_off = genotypes[child.indiv]
-                    if child.father is node:
-                        if child.mother is not None:
-                            geno_other=genotypes[child.mother.indiv]
-                        else:
-                            geno_other=None
-                    elif child.mother is node:
-                        if child.father is not None:
-                            geno_other = genotypes[child.father.indiv]
-                        else:
-                            geno_other=None
-                    gam_off = gamete.Gamete.from_offspring_genotype(geno_off,other_geno=geno_other)
-                    logger.debug(f".off : {gam_off}")
-                    children_gametes[child.indiv]=gam_off
-                if len(node.children)>0:
-                    wcsp_tasks.append((node,p,children_gametes))
 
-            logger.info(f"Phasing {len(wcsp_tasks)} parents with WCSP")
-            with Pool(cpu_count()) as workers:
-                for indiv,pair in workers.imap(wcsp_phase,wcsp_tasks):
-                    del self.phases[reg][indiv]
-                    self.phases[reg][indiv]=pair
+            logger.debug(f"3. Update gametes from {len(node.children)} Offsprings")
+            children_gametes = {}
+            for child in node.children:
+                geno_off = genotypes[child.indiv]
+                if child.father is node:
+                    if child.mother is not None:
+                        geno_other=genotypes[child.mother.indiv]
+                    else:
+                        geno_other=None
+                elif child.mother is node:
+                    if child.father is not None:
+                        geno_other = genotypes[child.father.indiv]
+                    else:
+                        geno_other=None
+                gam_off = gamete.Gamete.from_offspring_genotype(geno_off,other_geno=geno_other)
+                logger.debug(f".off : {gam_off}")
+                children_gametes[child.indiv]=gam_off
+            if len(node.children)>0:
+                wcsp_tasks.append((node,p,children_gametes))
+            if has_tqdm:
+                pbar.update(1)
+
+        logger.info(f"Phasing {len(wcsp_tasks)} parents with WCSP")
+        if has_tqdm:
+            pbar = tqdm(total=len(wcsp_tasks))
+            pbar.set_description("WCSP phasing")
+        with Pool(cpu_count()) as workers:
+            for indiv,pair in workers.imap(wcsp_phase,wcsp_tasks):
+                del chrom_pairs[indiv]
+                chrom_pairs[indiv]=pair
+                pbar.update(1)
+        return chrom_pairs
 
 
 def main(args):
-    print(args)
+    prfx=args.prfx
     # if len(args)<1:
     #     print("usage: yapp phase <prfx>")
     #     sys.exit(1)
     # logging.basicConfig(format='%(asctime)s  %(levelname)s: %(message)s',datefmt='%m/%d/%Y %I:%M:%S %p',
     #                     filename=prfx+'_yapp_phase.log',filemode='w',level=logging.INFO)
-    # logging.info("Starting YAPP PHASE analysis")
-    # phaser=Phaser.from_prefix(prfx)
-    # phaser.run()
-    # logging.info(f"Exporting results to : {prfx}_phased.vcf.gz and {prfx}_yapp.db")
+    phaser=Phaser.from_prefix(prfx)
+    phaser.run()
+    # logger.info(f"Exporting results to : {prfx}_phased.vcf.gz and {prfx}_yapp.db")
     # phaser.write_phased_vcf(prfx+'_phased.vcf.gz')
     # phaser.save(prfx+'_yapp.db')
-    # logging.info("YAPP PHASE analysis done")
+    logger.info("YAPP PHASE analysis done")
 if __name__=='__main__':
     main(sys.argv)
