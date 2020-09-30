@@ -109,6 +109,35 @@ class RecombAnalyser():
             res.append([left,right])
         return res
 
+    @staticmethod
+    def min_interval_size( nmeio, recrate=1, alpha=0.05):
+        """Determine minimal interval size to estimate recombination rates
+        
+        Assuming a Poisson distributed number of crossovers in an interval of size L.
+        The probability of sampling 0 crossovers among nmeio meioses is:
+
+        p_0 = exp( - recrate * L * nmeio)
+
+        The minimal interval size is the one that satisfies p_0 = alpha, or:
+
+        L = -log(alpha)/(recrate*nmeio)
+
+        Arguments
+        ---------
+        nmeio : int
+          number of meioses
+        recracte : float
+          recombination rate (in cM/Mb)
+        alpha : float
+          precision parameter ( P(k=0)<alpha)
+          
+        Returns
+        -------
+        float
+           minimum interval size
+        """
+        return 1e8*np.log(alpha)/(recrate*nmeio)
+    
     def run(self):
         """ Run the recombination analysis """
         print("Calculating number of informative meioses for each parent")
