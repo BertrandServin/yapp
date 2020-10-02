@@ -21,15 +21,18 @@ For haplotypes:
     -  1 : for allele a
  
 """
+import logging
 import numpy as np
 from yapp import wcsp
+
+logger = logging.getLogger(__name__)
+
 
 class Gamete():
     """A gamete = an haplotype transmitted during meiosis
     """
     def __init__(self):
         self.haplotype = None
-        self.origin = None
 
     @staticmethod
     def valid_genotype(genotype):
@@ -53,7 +56,7 @@ class Gamete():
         return ' '.join([ f"{x<0 and ' -' or x:2}" for x in self.haplotype])
     
     @classmethod
-    def from_genotype(cls, genotype, origin=None):
+    def from_genotype(cls, genotype):
         """
         Creates a gamete from a genotype.
 
@@ -61,8 +64,6 @@ class Gamete():
         ---------
         - genotype : sequence
            A diploid genotype with values
-        - origin : obj
-           The origin of the gamete. Default to None (Unknown).
 
         Returns
         -------
@@ -76,11 +77,10 @@ class Gamete():
         gam.haplotype[geno==1]=-1
         gam.haplotype[geno==0]=0
         gam.haplotype[geno==2]=1
-        gam.origin=origin
         return gam
 
     @classmethod
-    def from_offspring_genotype(cls, off_geno, other_geno=None, origin=None):
+    def from_offspring_genotype(cls, off_geno, other_geno=None):
         """
         Creates the gamete transmitted to an offspring from its
         genotype, possibly using information from its other
@@ -93,7 +93,7 @@ class Gamete():
         - other_geno : genotype
             genotype of the other parent
         """
-        gam = cls.from_genotype(off_geno,origin)
+        gam = cls.from_genotype(off_geno)
         if other_geno is not None:
             gam_other = cls.from_genotype(other_geno)
             try:
@@ -105,6 +105,26 @@ class Gamete():
             gam.haplotype[new_info_mk] = 1 - gam_other.haplotype[new_info_mk]
         return gam
 
+    @classmethod
+    def from_offspring_segregation(cls, off_gam, off_seg):
+        """
+        Creates an inferred gamete for the parent given the gamete transmitted 
+        to an offspring and the segregation indicator of the meiosis.
+
+        Arguments
+        ---------
+        - off_gam : gamete
+           gamete received by the offspring
+        - off_seg : array of int
+           Segregation indicator of the grand-parental origin of the gamete
+        """
+        gam = cls()
+        gam.haplotype = np.full_like(off_gam.haplotype,-2)
+        for i,a in enumerate(off_gam.haplotype):
+            if a > -1:
+                gam.haplotype[i] = off_seg[i] and a or (1-a)
+        return gam
+    
     @classmethod
     def from_wcsp_solver(cls, par_geno, dict_child_gam):
         """
@@ -134,7 +154,7 @@ class Gamete():
     
     @classmethod
     def combine(cls,first, second):
-        '''Combine two gametes into a new noe
+        '''Combine two gametes into a new one
         Argument
         --------
         first, second : Gametes
@@ -188,7 +208,7 @@ class Gamete():
         return g
 
     @classmethod
-    def complement(cls,gam,genotype,origin=None):
+    def complement(cls,gam,genotype):
         """Return the complementary gamete needed to form the given genotype
         """
         assert type(gam)==Gamete
