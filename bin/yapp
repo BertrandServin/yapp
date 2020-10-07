@@ -12,9 +12,11 @@ def yapp_parser():
     parser = argparse.ArgumentParser(prog='yapp')
     parser.add_argument('--log-level',choices=['debug','info','warning'],default='info')
     parser.add_argument('-c', type=int, help='Number of CPU to use',default=cpu_count())
+    parser.add_argument('--quiet',type=bool, help='Be quiet', default=False)
     subparsers = parser.add_subparsers(dest='command',
                                        title="Analyses",
                                        description='Available commands')
+    
 
     # Mendel
     parser_mendel = subparsers.add_parser('mendel', help='Correct genealogies from Mendelian errors')
@@ -24,6 +26,7 @@ def yapp_parser():
     # Phase
     parser_phase = subparsers.add_parser('phase', help='Phase genotypes based on segregation in a pedigree')
     parser_phase.add_argument('prfx', type=str, help='prefix for input / output files')
+    parser_phase.add_argument('--reg', type=str, help='Region to work on in BED format ( chr[:start-end] )',default=None)
     parser_phase.set_defaults(func=family_phaser.main)
 
     # Recomb
@@ -44,17 +47,18 @@ def main(args):
     logger = logging.getLogger('yapp')
     logger.setLevel(log_config[myopts.log_level])
     ## Console logs
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
     ## Log to file
     fh = logging.FileHandler(myopts.prfx+'_yapp.log')
     fh.setLevel(log_config[myopts.log_level])
     ## Formatter
     formatter = logging.Formatter(f'%(asctime)s [{myopts.command}] %(levelname)s: %(message)s',datefmt='%m/%d/%Y %I:%M:%S %p')
     fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
     logger.addHandler(fh)
-    logger.addHandler(ch)
+    if not myopts.quiet:
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.INFO)
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
 
     logger.info(f"Starting YAPP {myopts.command} analysis")
     myopts.func(myopts)

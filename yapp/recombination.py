@@ -12,11 +12,6 @@ from collections import defaultdict
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.stats import gamma,binom, poisson
-try:
-    from tqdm import tqdm
-    has_tqdm=True
-except:
-    has_tqdm=False
 
 from . import family_phaser, MALE, FEMALE
 
@@ -148,11 +143,7 @@ class RecombAnalyser():
     def set_informative_meioses(self):
         """ Identify informative meioses for each parent """
         logger.info("Set Informative meioses")
-        if has_tqdm:
-            pbar= tqdm(total=len(self.phaser.regions)*len(self.parents))
         for reg in self.phaser.regions:
-            if has_tqdm:
-                pbar.set_description(f"Processing {reg}")
             snps = self.phaser.vcf['variants'][reg]
             pos = np.array([ x[2] for x in snps])
             mids = np.array( [ 0.5*(x+y) for x,y in zip(pos[:-1],pos[1:])])
@@ -175,8 +166,6 @@ class RecombAnalyser():
                 par.set_n_info_meioses(chrom, mids, n_meio_info)
                 for pp in range(0,max(pos), 1000000):
                     logging.debug(f"{indiv}:{chrom} {pp} {par.n_info_meioses(chrom,pp)}")
-                if has_tqdm:
-                    pbar.update(1)
         for sex in self.size_covered:
             for chrom in self.size_covered[sex]:
                 logging.info(f"sex:{sex} chrom:{chrom} size:{self.size_covered[sex][chrom]} Mb")
@@ -184,12 +173,8 @@ class RecombAnalyser():
     def identify_crossovers(self, recrate = 1):
         logging.info("Gathering crossovers")
         recmaps = self.phaser.recmap(recrate)
-        if has_tqdm:
-            pbar= tqdm(total=len(self.phaser.regions)*len(self.phaser.pedigree.nodes))
    
         for reg in self.phaser.regions:
-            if has_tqdm:
-                pbar.set_description(f"Processing {reg}")
             logging.info(f"Working on : {reg}")
             chrom_pairs = self.phaser.phases[reg]
             recmap=recmaps[reg]
@@ -225,8 +210,6 @@ class RecombAnalyser():
                         cos=self.get_crossovers(chpair.si_mat)
                         for x,y in cos:
                             par.add_offspring_CO(node.indiv, chrom, pos[x],pos[y])
-                if has_tqdm:
-                    pbar.update(1)
  
         for name,par in self.parents.items():
             to_rm=[]

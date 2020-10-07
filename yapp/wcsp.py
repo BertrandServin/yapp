@@ -96,6 +96,10 @@ class PhaseSolver(object):
         self.pairs=mk_pairs
         self.recf=recmap_f
         self.L=len(self.mk)
+        try:
+            assert self.L>1
+        except AssertionError:
+            raise ValueError("WCSP problem must have size > 1")
         ## Initialize Optim. model
         ### Creates an array of phase indicators
         self.Variables=nj.VarArray(self.L)

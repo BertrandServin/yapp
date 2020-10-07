@@ -432,7 +432,7 @@ def vcf2zarr(fname,output_prefix=None, mode=default_mode, samples=None, reg=None
 
         data=[]
         for i, sid in enumerate(smp):
-            sys.stdout.write(f"{sid:<20} {100*i/len(smp):.2f} %\r")
+            sys.stdout.write(f"{sid:<20} {100*(i+1)/len(smp):.2f} %\r")
             sys.stdout.flush()
             if mode == 'likelihood':
                 # fz['genotypes'][f'{r}'][i,]

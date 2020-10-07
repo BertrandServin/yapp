@@ -121,8 +121,8 @@ class Gamete():
         gam = cls()
         gam.haplotype = np.full_like(off_gam.haplotype,-2)
         for i,a in enumerate(off_gam.haplotype):
-            if a > -1:
-                gam.haplotype[i] = off_seg[i] and a or (1-a)
+            if a > -1 and off_seg[i]>-1:
+                gam.haplotype[i] = a if off_seg[i]==1 else (1-a)
         return gam
     
     @classmethod
@@ -145,11 +145,12 @@ class Gamete():
         for k,v in dict_child_gam.items():
             hap_data[k] = list(dict_child_gam[k].haplotype[het_mk])
         phase_data = wcsp.PhaseData(hap_data)
-        resolved_mk = [het_mk[i] for i in phase_data.info_mk]
-        S=wcsp.PhaseSolver(phase_data.info_mk,phase_data.info_pairs,phase_data.recrate)
-        S.add_constraints()
-        par_phase=S.solve()
-        new_gam.haplotype[resolved_mk]=par_phase
+        if len(phase_data.info_mk)>0:
+            resolved_mk = [het_mk[i] for i in phase_data.info_mk]
+            S=wcsp.PhaseSolver(phase_data.info_mk,phase_data.info_pairs,phase_data.recrate)
+            S.add_constraints()
+            par_phase=S.solve()
+            new_gam.haplotype[resolved_mk]=par_phase
         return new_gam
     
     @classmethod
@@ -209,7 +210,8 @@ class Gamete():
 
     @classmethod
     def complement(cls,gam,genotype):
-        """Return the complementary gamete needed to form the given genotype
+        """Return the complementary gamete needed to form the given genotype.
+        In case of incompatibility set both gametes to -1.
         """
         assert type(gam)==Gamete
         geno = Gamete.valid_genotype(genotype)
