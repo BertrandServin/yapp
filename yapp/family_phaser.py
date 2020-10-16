@@ -107,7 +107,21 @@ class ChromosomePair():
     def maternal_gamete(self):
         return self.H[self.h_mat]
     
-        
+
+    def get_phase_info( self,origin, call=0.999):
+        """Return informative phase in parent origin (0:father, 1:
+        mother) = segregation indicator truncated at uninformative
+        boundaries.
+        """
+        assert (origin==0) or (origin==1)
+        segind = self.si_pat if (origin==0) else self.si_mat
+        phase_info=np.full_like(self.g, -1, dtype=np.int8)
+        for i, (a,p) in enumerate(segind):
+            if self.phased[i] and p>0.999:
+                phase_info[i]=a
+        return phase_info
+    
+
     def get_transmitted_from_segregation(self, si, call=0.999):
         """ 
         Returns the gamete transmitted from a segregation indicator vector.
@@ -142,7 +156,7 @@ class ChromosomePair():
         Transition probabilities are:
         [ [ (1-r)   r   ]
           [   r   (1-r) ] ... ] for r in recmap
-          bewteen all marker pairs
+          between all marker pairs
 
         Returns
         -------
@@ -158,7 +172,7 @@ class ChromosomePair():
         emissions   = np.ones( (self.len,2), dtype=np.float) ## [ P(gam[m]| S==pat[m]), P(gam[m]| S==mat[m])]
         for m in range(self.len):
             if gam.haplotype[m]>-1 and self.g[m]>-1 and self.H[0].haplotype[m]>-1 and self.H[1].haplotype[m]>-1:
-                ## mendelian errors
+                ## ignore mendelian errors
                 if ( gam.haplotype[m]==0 and self.g[m]==2 ) or (gam.haplotype[m]==1 and self.g[m]==0):
                     emissions[m,0]=1
                     emissions[m,1]=1
@@ -514,10 +528,10 @@ class Phaser():
                     continue
                 chpair = chrom_pairs[child.indiv]
                 if child.father is node:
-                    phase_info = [x[0] if x[1]>0.999 else -1 for x in chpair.si_pat]
+                    phase_info = chpair.get_phase_info(0)#[x[0] if x[1]>0.999 else -1 for x in chpair.si_pat]
                     children_gametes[child.indiv]=gamete.Gamete.from_offspring_segregation(chpair.paternal_gamete, phase_info)
                 elif child.mother is node:
-                    phase_info = [x[0] if x[1]>0.999 else -1 for x in chpair.si_mat]
+                    phase_info = chpair.get_phase_info(1)#[x[0] if x[1]>0.999 else -1 for x in chpair.si_mat]
                     children_gametes[child.indiv]=gamete.Gamete.from_offspring_segregation(chpair.maternal_gamete, phase_info)
             if len(children_gametes)>0:
                 wcsp_tasks.append((node,p,children_gametes))
