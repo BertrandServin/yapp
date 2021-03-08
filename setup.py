@@ -18,6 +18,7 @@ setup( name = 'yapp',
            'scipy',
            'cyvcf2',
            'zarr',
+           'h5py',
            'fastphase'
            ],
        scripts=['bin/fphtrain','bin/yapp'],

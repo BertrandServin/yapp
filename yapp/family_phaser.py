@@ -427,6 +427,8 @@ class Phaser():
                 nhet += p.nhet
                 nresolved += p.nresolved
             logger.info(f"[{reg}] Resolved {nresolved} out of {nhet} phases : {100*nresolved/nhet:.1f}%")
+            ## Final estimation of segregation indicators once phases are inferred
+            phases = self.compute_segregations(reg, phases=phases)
             
             logger.info(f"Storing results")
             nind,nsnp=self.data['genotypes'][reg].shape
@@ -457,6 +459,35 @@ class Phaser():
         ##self.write_phased_vcf('test.vcf.gz')
         # return { 'phases' : phases,
         #          'recombinations' : recombinations }
+
+    def compute_segregations(self, region, phases=None, recrate=1):
+        """Compute segregations for all individuals in the pedigree
+        
+        """
+        logger.info(f"Computing segregations on region {region}")
+        recmaps = self.recmap(recrate)
+        if phases == None:
+            chrom_pairs = self.phases_from_genotypes(region)
+        else:
+            chrom_pairs = phases
+        recmap=recmaps[region]
+        pat_seg_tasks=[]
+        mat_seg_tasks=[]
+        for node in self.pedigree:
+            chpair = chrom_pairs[node.indiv]
+            if node.father:
+                pat_seg_tasks.append( ( node.indiv, chrom_pairs[node.father.indiv], chpair.paternal_gamete, recmap))
+            if node.mother:
+                mat_seg_tasks.append( ( node.indiv, chrom_pairs[node.mother.indiv], chpair.maternal_gamete, recmap))
+        with Pool(cpu_count()) as workers:
+            for indiv, segind in workers.imap_unordered(run_segregation_task, pat_seg_tasks):
+                chpair = chrom_pairs[node.indiv]
+                chpair.si_pat = segind
+            for indiv, segind in workers.imap_unordered(run_segregation_task, mat_seg_tasks):
+                chpair = chrom_pairs[node.indiv]
+                chpair.si_mat = segind
+        return phases
+                        
     def phase_samples_from_segregations(self, region, ncpu=1, phases=None, recrate=1):
         """Infer segregation indicators in the pedigree.
 
@@ -505,7 +536,7 @@ class Phaser():
                     ignore_child[node.indiv]=True
                 else:
                     new_gam = chpair_p.get_transmitted_from_segregation(chpair.si_pat)
-                    nmiss=chpair.update_paternal_gamete(new_gam)
+                    nmiss = chpair.update_paternal_gamete(new_gam)
                     if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
                         logger.debug(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
                         ignore_child[node.indiv]=True
