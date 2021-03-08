@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 class Gamete():
     """A gamete = an haplotype transmitted during meiosis
     """
-    def __init__(self):
-        self.haplotype = None
+    def __init__(self, hap=None):
+        self.haplotype = hap
 
     @staticmethod
     def valid_genotype(genotype):

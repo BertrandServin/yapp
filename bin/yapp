@@ -4,7 +4,7 @@ import sys
 import argparse
 import logging
 from multiprocessing import cpu_count
-from yapp import mendel, family_phaser, recombination
+from yapp import mendel, family_phaser, recombination, sperm
 
 log_config={'debug': logging.DEBUG, 'info': logging.INFO, 'warning':logging.WARNING}
 
@@ -33,6 +33,11 @@ def yapp_parser():
     parser_recomb = subparsers.add_parser('recomb', help='Infer recombinations from phased data')
     parser_recomb.add_argument('prfx', type=str, help='prefix for input / output files')
     parser_recomb.set_defaults(func=recombination.main)
+
+    # Sperm
+    parser_sperm = subparsers.add_parser('sperm', help='Infer parental phased from sperm data')
+    parser_sperm.add_argument('prfx', type=str, help='prefix for input / output files')
+    parser_sperm.set_defaults(func=sperm.main)
 
     return parser
 

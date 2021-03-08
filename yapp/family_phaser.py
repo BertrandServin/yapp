@@ -55,6 +55,19 @@ class ChromosomePair():
         self.si_pat = [ (0,0.5) for _ in range(len(self.g))]
         self.si_mat = [ (0,0.5) for _ in range(len(self.g))]
 
+    @classmethod
+    def from_phase_data(cls, genotype, paternal_hap, maternal_hap, paternal_si, maternal_si):
+        obj = cls(genotype)
+        paternal_gamete=gamete.Gamete(paternal_hap)
+        obj.update_paternal_gamete(paternal_gamete)
+        maternal_gamete=gamete.Gamete(maternal_hap)
+        obj.update_maternal_gamete(maternal_gamete)
+        assert len(paternal_si) == obj.len
+        assert len(maternal_si) == obj.len
+        obj.si_pat = np.array(paternal_si, dtype=np.int)
+        obj.si_mat = np.array(maternal_si, dtype=np.int)
+        return obj
+    
     @property
     def len(self):
         return len(self.g)
@@ -117,7 +130,7 @@ class ChromosomePair():
         segind = self.si_pat if (origin==0) else self.si_mat
         phase_info=np.full_like(self.g, -1, dtype=np.int8)
         for i, (a,p) in enumerate(segind):
-            if self.phased[i] and p>0.999:
+            if self.phased[i] and p>call:
                 phase_info[i]=a
         return phase_info
     
@@ -462,7 +475,7 @@ class Phaser():
         else:
             chrom_pairs = phases
         recmap=recmaps[region]
-        logger.debug("1. Infer Segregation Indicators")
+        logger.info("\t1. Infer Segregation Indicators")
         pat_seg_tasks=[]
         mat_seg_tasks=[]
         for node in self.pedigree:
@@ -472,7 +485,7 @@ class Phaser():
                           f"gen:{node.gen} "
                           f"par:{(node.father!=None)+(node.mother!=None)} "
                           f"off:{len(node.children)} "
-                          f"nhet : {chpair.nhet}"
+                          f"nhet : {chpair.nhet} "
                           f"nresolved : {chpair.nresolved} ]")
             if node.father:
                 pat_seg_tasks.append( ( node.indiv, chrom_pairs[node.father.indiv], chpair.paternal_gamete, recmap))
@@ -494,7 +507,7 @@ class Phaser():
                     new_gam = chpair_p.get_transmitted_from_segregation(chpair.si_pat)
                     nmiss=chpair.update_paternal_gamete(new_gam)
                     if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
-                        logger.warning(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
+                        logger.debug(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
                         ignore_child[node.indiv]=True
             for indiv, segind in workers.imap_unordered(run_segregation_task, mat_seg_tasks):
                 node = self.pedigree.nodes[indiv]
@@ -508,10 +521,10 @@ class Phaser():
                     new_gam = chpair_m.get_transmitted_from_segregation(chpair.si_mat)
                     nmiss=chpair.update_maternal_gamete(new_gam)
                     if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
-                        logger.warning(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
+                        logger.debug(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
                         ignore_child[node.indiv]=True
-
-        logger.debug("2. Update parental phases")
+        logger.info(f"Found {len(ignore_child)} mismatches out of {len(pat_seg_tasks)+len(mat_seg_tasks)} tasks")
+        logger.info("\t2. Update parental phases")
         wcsp_tasks=[]
         for node in self.pedigree:
             p=chrom_pairs[node.indiv]
@@ -640,7 +653,7 @@ class Phaser():
         elapsed_time = time.time() - start_time
         tot_time = elapsed_time * ncpu
         time_per_task = tot_time / len(wcsp_tasks)
-        self.timeout_delay = round( time_per_task )
+        self.timeout_delay = round( time_per_task ) + 1
         logger.info(f"Setting up timeout delay to {self.timeout_delay} seconds")
         return chrom_pairs
 
@@ -650,7 +663,7 @@ def main(args):
 
     logger.info("Loading Data")
     phaser=Phaser.from_prefix(prfx,region=args.reg)
-    logger.info("Running Analysis")
+    logger.info("Startgin YAPP PHASE analysis")
     phaser.run(ncpu=args.c)
     logger.info(f"Exporting results to : {phaser.vcf_out_file_name} and {phaser.prefix}_yapp.db")
     phaser.write_phased_vcf()

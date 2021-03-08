@@ -17,6 +17,7 @@ def genotype_vector( genotypes ):
 def mendel_errors( args):
     genotypes, pairs= args
     pairs=np.array(pairs)
+    genotypes = np.array(genotypes)
     from_genotypes = np.array(genotypes)[pairs[:,0],:2]
     to_genotypes = np.array(genotypes)[pairs[:,1],:2]
     fg = genotype_vector(from_genotypes)
@@ -147,5 +148,3 @@ def main(args):
                     print(' '.join(buf),file=nfam)
         logger.info(f"new fam file is : {prfx}.fam.new")
                         
-if __name__=='__main__':
-    main(sys.argv[1:])
