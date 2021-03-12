@@ -111,6 +111,8 @@ class Gamete():
         Creates an inferred gamete for the parent given the gamete transmitted 
         to an offspring and the segregation indicator of the meiosis.
 
+        WARNING : this provides a valid gamete only for heterozygous markers in the parent
+
         Arguments
         ---------
         - off_gam : gamete
@@ -138,7 +140,8 @@ class Gamete():
            collection of gametes with key = offspring names
         """
         pg = Gamete.valid_genotype(par_geno)
-        het_mk = [ i for i,x in enumerate(pg) if x ==1]
+        ##het_mk = [ i for i,x in enumerate(pg) if x ==1]
+        het_mk = np.where(pg==1)[0]
         hap_data = {}
         new_gam = Gamete()
         new_gam.haplotype = np.full_like(pg, -1)

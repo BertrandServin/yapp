@@ -694,7 +694,7 @@ def main(args):
 
     logger.info("Loading Data")
     phaser=Phaser.from_prefix(prfx,region=args.reg)
-    logger.info("Startgin YAPP PHASE analysis")
+    ##logger.info("Starting YAPP PHASE analysis")
     phaser.run(ncpu=args.c)
     logger.info(f"Exporting results to : {phaser.vcf_out_file_name} and {phaser.prefix}_yapp.db")
     phaser.write_phased_vcf()
