@@ -142,7 +142,7 @@ class Pedigree():
             yield n
             
     @classmethod
-    def from_fam_file(cls, path):
+    def from_fam_file(cls, path, parent_from_FID=False, default_parent=MALE):
         with open(path) as f:
             relations = []
             for ligne in f:
@@ -150,10 +150,14 @@ class Pedigree():
                 ind = buf[1]
                 if buf[2] == '0':
                     f = None
+                    if parent_from_FID and default_parent==MALE:
+                        f = buf[0]
                 else:
                     f = buf[2]
                 if buf[3] == '0':
                     m = None
+                    if parent_from_FID and default_parent==FEMALE:
+                        m = buf[0]
                 else:
                     m = buf[3]
                 relations.append((ind, f, m))
@@ -163,6 +167,8 @@ class Pedigree():
                     ped.set_father(rel[0],rel[1])
                 if rel[2] is not None:
                     ped.set_mother(rel[0],rel[2])
+                if rel[1]==None and rel[2]==None:
+                    ped.add_indiv(rel[0])
         return ped
     
     @classmethod
