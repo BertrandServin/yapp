@@ -494,11 +494,11 @@ def main(args):
     prfx=args.prfx
     
     phaser_db = prfx+'.db'
-    logger.info("Starting YAPP RECOMB analysis")
+    ##logger.info("Starting YAPP RECOMB analysis")
     analyzer = RecombAnalyser(phaser_db)
     analyzer.run()
     analyzer.write_results(prfx)
-    logger.info("YAPP RECOMB analysis done")
+    ##logger.info("YAPP RECOMB analysis done")
 
 
 

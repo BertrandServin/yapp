@@ -15,6 +15,7 @@ T3: (0,4),(4,6)
 Genetic distance is assumed to be 0.1 cM between each marker pair
 
 '''
+from collections import defaultdict
 import numpy as np
 import Numberjack as nj
 
@@ -50,7 +51,9 @@ class PhaseData(object):
         ## For each offspring
         for k,v in self.rawphase.items():
             ## get informative markers ...
-            infomk=[i for i,x in enumerate(v) if x>=0]
+            # infomk=[i for i,x in enumerate(v) if x>=0]
+            v = np.array(v)
+            infomk= np.where( v>=0 )[0]
             if len(infomk)<2:
                 continue
             ## and corresponding successive pairs
@@ -67,10 +70,11 @@ class PhaseData(object):
                     Nvec=self.info_pairs[p]
                 Nvec[1-npair]+=1
         ## informative markers are all mks seen in pairs
-        info_mk=[]
+        info_mk=defaultdict(int)
         for k in self.info_pairs.keys():
-            info_mk+=list(k)
-        self.info_mk=np.unique(info_mk)
+            info_mk[k[0]]+=1
+            info_mk[k[1]]+=1
+        self.info_mk=sorted(info_mk.keys())
     @staticmethod
     def recrate(i,j,d=0.01):
         '''
