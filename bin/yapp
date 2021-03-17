@@ -35,8 +35,10 @@ def yapp_parser():
     parser_recomb.set_defaults(func=recombination.main)
 
     # Sperm
-    parser_sperm = subparsers.add_parser('sperm', help='Infer parental phased from sperm data')
+    parser_sperm = subparsers.add_parser('sperm', help='Infer parental chromosomes from "sperm typing" data')
     parser_sperm.add_argument('prfx', type=str, help='prefix for input / output files')
+    parser_sperm.add_argument('--pgeno', type=float, help='Call parent genotype if P(G)>P', metavar='P', default=0.95)
+    parser_sperm.add_argument('--err',type=float, help='Assume a genotyping error rate of E', metavar='E', default=1e-2)
     parser_sperm.set_defaults(func=sperm.main)
 
     return parser
