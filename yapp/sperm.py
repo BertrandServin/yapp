@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Yapp module sperm.py
+
+Infer genotype and phase of a parent from genotyping data of its gametes
+"""
 import logging
 from collections import defaultdict
 import numpy as np
@@ -65,53 +71,73 @@ def main(args):
         gam_data=vcf.vcf2zarr(vcf_file, output_prefix=oprfx,samples=[x.indiv for x in fam.non_founders], mode='inbred',maf=0)
         gam_data.create_group("parent")
         logger.debug(f"\n {gam_data.tree()}")
-        for reg in gam_data['regions']:
-            gam_hap = np.array(gam_data[f'genotypes/{reg}'])
-            g = genotype_from_gametes(gam_hap, pgeno=args.pgeno, gerr=args.err)
-            chrom_pair = family_phaser.ChromosomePair(g)
-            children_gametes = dict(zip(gam_data['samples'], [ gamete.Gamete(h) for h in gam_hap]))
-            
-            logger.info('\tPhase from genotypes')
-            wcsp_gam =  gamete.Gamete.from_wcsp_solver(g, children_gametes)
-            logger.debug(f"\n {gam_hap[:, :10]}")
-            logger.debug(f"{g[:10]}")
-            logger.debug('-'*10)
-            logger.debug(f"WCSP: {wcsp_gam.haplotype[:10]}")
-            chrom_pair.update_unknown_gamete(wcsp_gam)
-            logger.debug(f'h.pat: {chrom_pair.paternal_gamete.haplotype[:10]}')
-            logger.debug(f'h.mat: {chrom_pair.maternal_gamete.haplotype[:10]}')
-            
-            logger.info('\tPhase from segregations')
-            reg_map = recmap(np.array(gam_data[f"variants/{reg}/POS"]))
-            inconsistencies=[ defaultdict(int), defaultdict(int) ]
-            for sperm in children_gametes.values():
-                si_sperm = chrom_pair.get_segregation_indicators( sperm , recmap=reg_map)
-                ## impute paternal and maternal gametes at missing genotypes
-                new_gametes = [ gamete.Gamete(chrom_pair.paternal_gamete.haplotype), gamete.Gamete(chrom_pair.maternal_gamete.haplotype)]
-                for i,geno in enumerate(g):
-                    if si_sperm[i][1]>0.999:
-                        origin = si_sperm[i][0]
-                        if geno==-1:
-                            if new_gametes[origin].haplotype[i]<0:
-                                new_gametes[origin].haplotype[i]=sperm.haplotype[i]
-                            elif new_gametes[origin].haplotype[i]!=sperm.haplotype[i]:
-                                inconsistencies[origin][i]+=1
-            for locus in inconsistencies[0]:
-                new_gametes[0].haplotype[locus]=-1
-            for locus in inconsistencies[1]:
-                new_gametes[1].haplotype[locus]=-1
-            chrom_pair.update_paternal_gamete(new_gametes[0])
-            chrom_pair.update_maternal_gamete(new_gametes[1])
-                            
-            logger.debug(f'h.pat: {chrom_pair.paternal_gamete.haplotype[:10]}')
-            logger.debug(f'h.mat: {chrom_pair.maternal_gamete.haplotype[:10]}')
-            ##
-            ## save results
-            ph_par = gam_data["parent"].create_group(reg)
-            gametes = np.full( (2,gam_data["variants"][reg]['POS'].shape[0]), dtype='int8', fill_value=-2)
-            gametes[0] = chrom_pair.paternal_gamete.haplotype
-            gametes[1] = chrom_pair.maternal_gamete.haplotype
-            ph_par['gametes']=gametes
+        with open(f"{oprfx}.tped", "w") as ftped:
+            for reg in gam_data['regions']:
+                gam_hap = np.array(gam_data[f'genotypes/{reg}'])
+                g = genotype_from_gametes(gam_hap, pgeno=args.pgeno, gerr=args.err)
+                chrom_pair = family_phaser.ChromosomePair(g)
+                children_gametes = dict(zip(gam_data['samples'], [ gamete.Gamete(h) for h in gam_hap]))
+
+                logger.info('\tPhase from genotypes')
+                wcsp_gam =  gamete.Gamete.from_wcsp_solver(g, children_gametes)
+                logger.debug(f"\n {gam_hap[:, :10]}")
+                logger.debug(f"{g[:10]}")
+                logger.debug('-'*10)
+                logger.debug(f"WCSP: {wcsp_gam.haplotype[:10]}")
+                chrom_pair.update_unknown_gamete(wcsp_gam)
+                logger.debug(f'h.pat: {chrom_pair.paternal_gamete.haplotype[:10]}')
+                logger.debug(f'h.mat: {chrom_pair.maternal_gamete.haplotype[:10]}')
+
+                logger.info('\tPhase from segregations')
+                reg_map = recmap(np.array(gam_data[f"variants/{reg}/POS"]))
+                inconsistencies=[ defaultdict(int), defaultdict(int) ]
+                for sperm in children_gametes.values():
+                    si_sperm = chrom_pair.get_segregation_indicators( sperm , recmap=reg_map)
+                    ## impute paternal and maternal gametes at missing genotypes
+                    new_gametes = [ gamete.Gamete(chrom_pair.paternal_gamete.haplotype), gamete.Gamete(chrom_pair.maternal_gamete.haplotype)]
+                    for i,geno in enumerate(g):
+                        if si_sperm[i][1]>0.999:
+                            origin = si_sperm[i][0]
+                            if geno==-1:
+                                if new_gametes[origin].haplotype[i]<0:
+                                    new_gametes[origin].haplotype[i]=sperm.haplotype[i]
+                                elif new_gametes[origin].haplotype[i]!=sperm.haplotype[i]:
+                                    inconsistencies[origin][i]+=1
+                for locus in inconsistencies[0]:
+                    new_gametes[0].haplotype[locus]=-1
+                for locus in inconsistencies[1]:
+                    new_gametes[1].haplotype[locus]=-1
+                chrom_pair.update_paternal_gamete(new_gametes[0])
+                chrom_pair.update_maternal_gamete(new_gametes[1])
+
+                logger.debug(f'h.pat: {chrom_pair.paternal_gamete.haplotype[:10]}')
+                logger.debug(f'h.mat: {chrom_pair.maternal_gamete.haplotype[:10]}')
+                ##
+                ## save results
+                pos  =gam_data["variants"][reg]['POS']
+                chrom=gam_data["variants"][reg]['CHROM']
+                rsid =gam_data["variants"][reg]['ID']
+                ref  =gam_data["variants"][reg]['REF']
+                alt  =gam_data["variants"][reg]['ALT']
                 
+                ph_par = gam_data["parent"].create_group(reg)
+                gametes = np.full( (2,pos.shape[0]), dtype='int8', fill_value=-2)
+                gametes[0] = chrom_pair.paternal_gamete.haplotype
+                gametes[1] = chrom_pair.maternal_gamete.haplotype
+                ph_par['gametes']=gametes
+                for i,rs in enumerate(rsid):
+                    if chrom_pair.paternal_gamete.haplotype[i] == -1:
+                        pat_a = b'0'
+                    elif chrom_pair.paternal_gamete.haplotype[i] == 0:
+                        pat_a = ref[i]
+                    else:
+                        pat_a = alt[i]
+                    if chrom_pair.maternal_gamete.haplotype[i] == -1:
+                        mat_a = b'0'
+                    elif chrom_pair.maternal_gamete.haplotype[i] == 0:
+                        mat_a = ref[i]
+                    else:
+                        mat_a = alt[i]
+                    print(f"{chrom[i]} {rs} 0 {pos[i]} {pat_a.decode()} {mat_a.decode()}",file=ftped)
     return
 
