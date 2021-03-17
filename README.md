@@ -22,7 +22,7 @@ The code includes a `setup.py` script that should take care of
 installing yapp and *most* its dependencies. However some of them are
 optional and must be installed if needed:
 
-- ray : ray is an open source frame for building distributed
+- ray : ray is an open source framework for building distributed
   applications. It is really only needed in yapp for parallelizing
   tasks on a computer cluster. If you don't plan to do that, or are
   satisfied using the multiprocessing approach you don't need to
@@ -83,7 +83,12 @@ names in the resulting VCF do no include the family-ID.
 
 The output files produced are a phased VCF `<path/to/prefix>_phased.vcf.gz` and a
 binary file `<path/to/prefix>_yapp.db`. This binary file is useful
-for conducting analyses with other `yapp` commands.
+for conducting analyses with other `yapp` commands. `yapp` also stores
+the data on disk in the form of `zarr` Zarrays which makes it
+convenient to work with and transfer information from one `yapp`
+command to another or if you want to access programatically (in
+python) the results. When you are finished using it you might consider
+deleting those files as they can be big. 
 
 #### Citation
 `yapp phase` uses a Weighted Constraints Satisfaction Problem solver,
@@ -101,6 +106,32 @@ In ICLP-10 workshop on Constraint Based Methods for Bioinformatics,
 Edinburgh, UK, 2010 ](https://miat.inrae.fr/degivry/Favier10a.pdf)
 
 ### `recomb`
+
+The `recomb` command is used to detect crossing overs from phased
+data. It is meant to be run after a `yapp phase` run. It will produce
+two output files `<path/to/prefix>_yapp_recombinations.txt` with the
+localization of detected crossing over events and
+`<path/to/prefix>_yapp_recomb_coverage.txt` that provides for each
+meiosis (parent -> offspring) and each chromosome the interval within
+which crossing overs can be detected.
+
+### `sperm`
+
+The `sperm` command is used to infer parental genotype and phases from
+genotyping data of its gametes. The input files are the same as for
+the `phase` command with additional requirements : 
+1. the fam file should not contain pedigree information (columns 3 and
+   4 are ignored) but use the FID (/i.e./ first) column to relate an
+   individual to its gametes
+2. the vcf file will be read assuming individuals are completely
+   inbred (haploid gametes). Any heterozygote genotype is treated as
+   missing. 
+
+An output file is created for each gamete set found in the input files
+(/i.e./ each unique identifier in the FID column of the fam
+file). This file is in `tped` format with the additional information that
+haplotypes are phased. If you read it with plink the phase info will
+probably disappear. 
 
 ## Other Utilities
 
