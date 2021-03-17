@@ -573,10 +573,10 @@ class Phaser():
                 chpair = chrom_pairs[child.indiv]
                 if child.father is node:
                     phase_info = chpair.get_phase_info(0)#[x[0] if x[1]>0.999 else -1 for x in chpair.si_pat]
-                    children_gametes[child.indiv]=gamete.Gamete.from_offspring_segregation(chpair.paternal_gamete, phase_info)
+                    children_gametes[child.indiv]=gamete.Gamete.from_offspring_segregation(p.g,chpair.paternal_gamete, phase_info)
                 elif child.mother is node:
                     phase_info = chpair.get_phase_info(1)#[x[0] if x[1]>0.999 else -1 for x in chpair.si_mat]
-                    children_gametes[child.indiv]=gamete.Gamete.from_offspring_segregation(chpair.maternal_gamete, phase_info)
+                    children_gametes[child.indiv]=gamete.Gamete.from_offspring_segregation(p.g,chpair.maternal_gamete, phase_info)
             if len(children_gametes)>0:
                 wcsp_tasks.append((node,p,children_gametes))
 

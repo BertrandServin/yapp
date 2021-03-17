@@ -106,12 +106,10 @@ class Gamete():
         return gam
 
     @classmethod
-    def from_offspring_segregation(cls, off_gam, off_seg):
+    def from_offspring_segregation(cls, par_geno, off_gam, off_seg):
         """
         Creates an inferred gamete for the parent given the gamete transmitted 
         to an offspring and the segregation indicator of the meiosis.
-
-        WARNING : this provides a valid gamete only for heterozygous markers in the parent
 
         Arguments
         ---------
@@ -120,11 +118,15 @@ class Gamete():
         - off_seg : array of int
            Segregation indicator of the grand-parental origin of the gamete
         """
-        gam = cls()
-        gam.haplotype = np.full_like(off_gam.haplotype,-2)
+        gam = cls.from_genotype(par_geno)
+        # gam=cls()
+        # gam.haplotype = np.full_like(off_gam.haplotype,-2)
         for i,a in enumerate(off_gam.haplotype):
             if a > -1 and off_seg[i]>-1:
-                gam.haplotype[i] = a if off_seg[i]==1 else (1-a)
+                if par_geno[i] == 1:
+                    gam.haplotype[i] = a if off_seg[i]==1 else (1-a)
+                elif par_geno[i] < 0:
+                    gam.haplotype[i] = a
         return gam
     
     @classmethod
