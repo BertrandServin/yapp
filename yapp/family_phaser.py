@@ -288,20 +288,24 @@ class ChromosomePair():
         return nmiss
 
 class Phaser():
-    def __init__(self,vcf_file,ped_file, out_prfx, region=None):
-        if region ==None:
-            self.prefix=out_prfx
-        else:
-            self.prefix=f"{out_prfx}_{region}"
-        ## genotype data
-        self.data = vcf.vcf2zarr(vcf_file, output_prefix=self.prefix,reg=region)
-        self.vcf_out_file_name = f"{self.prefix}_phased.vcf.gz"
-        self.vcf_file_name=f"{out_prfx}.vcf.gz"
-        self.ped_file_name=ped_file
-        self.err=1e-3
+    def __init__(self,vcf_file,ped_file, out_prfx, region=None, focalID=None):
+        self.prefix=out_prfx
+        if region != None:
+            self.prefix +="_"+region
+        if focalID != None:
+            self.prefix +="_"+focalID
         ## individuals
         ped=pedigree.Pedigree.from_fam_file(ped_file)
-        pedindivs = [x for x in ped.nodes]
+        if focalID != None:
+            ped=ped.get_family(focalID)
+        self.ped_file_name=ped_file
+        pedindivs = [x.indiv for x in ped]
+        print(pedindivs)
+        ## genotype data
+        self.data = vcf.vcf2zarr(vcf_file, output_prefix=self.prefix,reg=region, samples=pedindivs)
+        self.vcf_out_file_name = f"{self.prefix}_phased.vcf.gz"
+        self.vcf_file_name=f"{out_prfx}.vcf.gz"
+        self.err=1e-3
         genosmp=defaultdict( lambda: False)
         for g in self.genotyped_samples:
             genosmp[g]=True
@@ -315,7 +319,7 @@ class Phaser():
         self.timeout_delay = 30
                 
     @classmethod
-    def from_prefix(cls,prfx, region=None):
+    def from_prefix(cls,prfx, region=None, focalID=None):
         """
         Create a phaser object from files with the same prefix : 
         prfx.vcf.gz and prfx.fam
@@ -330,7 +334,7 @@ class Phaser():
         """
         vcf_file=f"{prfx}.vcf.gz"
         fam_file=f"{prfx}.fam"
-        obj =  cls(vcf_file,fam_file,prfx,region=region)
+        obj =  cls(vcf_file,fam_file,prfx,region=region, focalID=focalID)
         print(obj.data.tree())
         return obj
     
@@ -696,7 +700,7 @@ def main(args):
     prfx=args.prfx
 
     logger.info("Loading Data")
-    phaser=Phaser.from_prefix(prfx,region=args.reg)
+    phaser=Phaser.from_prefix(prfx,region=args.reg,focalID=args.focalID)
     ##logger.info("Starting YAPP PHASE analysis")
     phaser.run(ncpu=args.c)
     logger.info(f"Exporting results to : {phaser.vcf_out_file_name} and {phaser.prefix}_yapp.db")
