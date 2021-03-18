@@ -283,13 +283,8 @@ class ChromosomePair():
         misses_origin,new_gam=gamete.Gamete.combine(self.H[origin],prop_gam)
         nmiss[origin]=len(misses_origin)
         self.H[origin]=new_gam
-        ## erase genotype at missed calls
-        for m in misses_origin:
-            self.g[m]=-1
         prop_gam_o=gamete.Gamete.complement(self.H[origin],self.g)
         misses_other,new_gam=gamete.Gamete.combine(self.H[1-origin],prop_gam_o)
-        for m in misses_other:
-            self.g[m]=-1
         nmiss[1-origin]=len(misses_other)
         self.H[1-origin]=new_gam
         return nmiss
