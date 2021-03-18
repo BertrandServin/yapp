@@ -101,7 +101,8 @@ class RecombAnalyser():
                 if right == len(best_guess)-1:
                     break
                 right +=1
-            res.append([left,right])
+            if best_guess[left]!=best_guess[right]:
+                res.append([left,right])
         return res
 
     @staticmethod

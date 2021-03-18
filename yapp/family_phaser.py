@@ -525,6 +525,7 @@ class Phaser():
 
         ## if inconsistent or uninformative -> ignore meioses for phasing parents
         ignore_child=defaultdict( lambda : False)
+        nmm = 0
         with Pool(cpu_count()) as workers:
             for indiv, segind in workers.imap_unordered(run_segregation_task, pat_seg_tasks):
                 node = self.pedigree.nodes[indiv]
@@ -540,6 +541,7 @@ class Phaser():
                     if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
                         logger.debug(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
                         ignore_child[node.indiv]=True
+                        nmm+=1
             for indiv, segind in workers.imap_unordered(run_segregation_task, mat_seg_tasks):
                 node = self.pedigree.nodes[indiv]
                 chpair_m = chrom_pairs[node.mother.indiv]
@@ -554,7 +556,8 @@ class Phaser():
                     if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
                         logger.debug(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
                         ignore_child[node.indiv]=True
-        logger.info(f"Found {len(ignore_child)} mismatches out of {len(pat_seg_tasks)+len(mat_seg_tasks)} tasks")
+                        nmm+=1
+        logger.info(f"Found {nmm} mismatches out of {len(pat_seg_tasks)+len(mat_seg_tasks)} tasks")
         logger.info("\t2. Update parental phases")
         wcsp_tasks=[]
         for node in self.pedigree:
