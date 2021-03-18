@@ -154,7 +154,7 @@ class ChromosomePair():
             gam.haplotype[i]=self.H[allele].haplotype[i]
         return gam
     
-    def get_segregation_indicators(self, gam, recmap, err=1e-3):
+    def get_segregation_indicators(self, gam, recmap, err=1e-2):
         """Infer origin of alleles in the gamete gam using a simple HMM.
         
         Arguments
@@ -253,9 +253,9 @@ class ChromosomePair():
         to the fewest # of mismatches.
 
         """
-        n_miss_pat,new_gam_p = gamete.Gamete.combine(self.paternal_gamete,prop_gam)
-        n_miss_mat,new_gam_m = gamete.Gamete.combine(self.maternal_gamete,prop_gam)
-        if n_miss_mat < n_miss_pat:
+        misses_pat,new_gam_p = gamete.Gamete.combine(self.paternal_gamete,prop_gam)
+        misses_mat,new_gam_m = gamete.Gamete.combine(self.maternal_gamete,prop_gam)
+        if len(misses_mat) < len(misses_pat):
             return self.update_maternal_gamete(prop_gam) 
         else:
             return self.update_paternal_gamete(prop_gam)
@@ -280,10 +280,17 @@ class ChromosomePair():
             origin = self.h_mat
         else:
             raise ValueError(f"{type(self)}:[update_gamete]: parent must be 0 or 1")
-        nmiss[origin],new_gam=gamete.Gamete.combine(self.H[origin],prop_gam)
+        misses_origin,new_gam=gamete.Gamete.combine(self.H[origin],prop_gam)
+        nmiss[origin]=len(misses_origin)
         self.H[origin]=new_gam
+        ## erase genotype at missed calls
+        for m in misses_origin:
+            self.g[m]=-1
         prop_gam_o=gamete.Gamete.complement(self.H[origin],self.g)
-        nmiss[1-origin],new_gam=gamete.Gamete.combine(self.H[1-origin],prop_gam_o)
+        misses_other,new_gam=gamete.Gamete.combine(self.H[1-origin],prop_gam_o)
+        for m in misses_other:
+            self.g[m]=-1
+        nmiss[1-origin]=len(misses_other)
         self.H[1-origin]=new_gam
         return nmiss
 

@@ -175,7 +175,7 @@ class Gamete():
         assert len(first.haplotype) == len(second.haplotype)
         gam = cls()
         gam.haplotype = np.full_like(first.haplotype, -1)
-        nmiss=0
+        misses = []
         for i, alleles in enumerate(zip(first.haplotype,second.haplotype)):
             if alleles[0]<0 and alleles[1]<0:
                 continue
@@ -185,11 +185,11 @@ class Gamete():
                 gam.haplotype[i]=alleles[0]
             else:
                 if alleles[0]!=alleles[1]:
+                    misses.append(i)
                     gam.haplotype[i]=-1
-                    nmiss+=1
                 else:
                     gam.haplotype[i]=alleles[0]
-        return nmiss,gam
+        return misses,gam
     
     def add(self,other):
         """Add two gametes to form a genotype
