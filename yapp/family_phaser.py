@@ -367,7 +367,8 @@ class Phaser():
     def write_phased_vcf(self):
         """Write phase information in a VCF file
         """
-        vcf_tmpl = cyvcf2.VCF(self.vcf_file_name, lazy=True)
+        pedindivs=[x.indiv for x in self.pedigree]
+        vcf_tmpl = cyvcf2.VCF(self.vcf_file_name, lazy=True,samples=pedindivs)
         w = cyvcf2.Writer(self.vcf_out_file_name, vcf_tmpl)
         snp_mapping={}
         for s in vcf_tmpl:
