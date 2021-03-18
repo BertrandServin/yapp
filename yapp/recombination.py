@@ -283,7 +283,7 @@ class RecombAnalyser():
             print("parent sex offspring chrom left right",file=fout)
             for name, par in self.parents.items():
                 for off in par.meioses:
-                    for co in par.meioses[off]:
+                    for co in sorted(par.meioses[off]):
                         print(f"{name} {((par.sex==None) and 'U') or ((par.sex==MALE) and 'M' or 'F')} {off} "
                               f"{co.chrom} {co.left} {co.right}",file=fout)
 class Parent():
@@ -450,6 +450,8 @@ class CrossingOver():
         self.left = left
         self.right = right
 
+    def __lt__(self,other):
+        return (self.chrom,self.left,self.right)<(other.chrom,other.left,other.right)
     @property
     def size(self):
         return self.right-self.left
