@@ -102,8 +102,9 @@ class RecombAnalyser():
                     break
                 right +=1
             if best_guess[left]!=best_guess[right]:
-                res.append([left,right])
-        return res
+                res.append((left,right))
+        ## returns a set to resolve local clusters of crossovers
+        return set(res)
 
     @staticmethod
     def min_interval_size( nmeio, recrate=1, alpha=0.05):
