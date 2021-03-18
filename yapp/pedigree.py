@@ -420,3 +420,24 @@ class Pedigree():
                 except ValueError:
                     offspring2go.remove(x)
         return families
+
+    def get_family(self, indiv):
+        """
+        Get subpedigree connected to an individual in the pedigree
+
+        Argmuent
+        ----------
+        indiv: name of the focal individual
+
+        Returns: object
+        --------
+        A pedigree object with all individuals connected to the focal individual in the pedigree
+        """
+        try:
+            node = self.nodes[indiv]
+        except KeyrError:
+            raise ValueError(f"Focal individual {indiv} not found in pedigree")
+        relatives = self._get_relatives(node)
+        fam = Pedigree.from_pednodes(relatives)
+        return fam
+    

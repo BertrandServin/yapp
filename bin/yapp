@@ -27,6 +27,7 @@ def yapp_parser():
     parser_phase = subparsers.add_parser('phase', help='Phase genotypes based on segregation in a pedigree')
     parser_phase.add_argument('prfx', type=str, help='prefix for input / output files')
     parser_phase.add_argument('--reg', type=str, help='Region to work on in BED format ( chr[:start-end] )',default=None)
+    parser_phase.add_argument('--focalID', type=str, help='Run on subpedigree containing individual TOTO',default=None,metavar='TOTO')
     parser_phase.set_defaults(func=family_phaser.main)
 
     # Recomb
