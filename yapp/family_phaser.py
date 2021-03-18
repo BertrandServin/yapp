@@ -413,7 +413,18 @@ class Phaser():
         for i,name in enumerate(self.data['samples']):
             data[name]=genotypes[i,]
         return data
-        
+
+    def get_mendelian_genotypes(self, region):
+        genotypes=self.get_genotypes(region)
+        for node in self.pedigree:
+            pg = genotypes[node.indiv]
+            for child in node.children:
+                cg = genotypes[child.indiv]
+                errors=((pg==2)&(cg==0))|((pg==0)&(cg==2))
+                pg[errors]=-1
+                cg[errors]=-1
+        return genotypes
+
     def run(self, ncpu=cpu_count()):
         self.data.create_group("phases")
         for reg in self.regions:
@@ -613,6 +624,7 @@ class Phaser():
                         ntimeout += 1
         return chrom_pairs
 
+            
     def phase_samples_from_genotypes(self, region, ncpu=1, phases=None):
         """Reconstruct paternal and maternal gametes in the pedigree 
         based on observed genotypes.
@@ -623,7 +635,7 @@ class Phaser():
         """
         logger.info("Phasing samples from genotypes")
         logger.info("Loading Genotypes")
-        genotypes = self.get_genotypes(region)
+        genotypes = self.get_mendelian_genotypes(region)
         if phases == None:
             chrom_pairs = {}
             for node in self.pedigree:
