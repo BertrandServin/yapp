@@ -668,14 +668,18 @@ class Phaser():
                 gam_p = gamete.Gamete.from_genotype(geno_p)
                 nmiss=p.update_paternal_gamete(gam_p)
                 if (nmiss[0]+nmiss[1]) > qerr(p.nhet*2, self.err):
-                    logger.warning(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
+                    logger.warning(f"[from_geno] {node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
+                elif (nmiss[0]+nmiss[1]>0):
+                    logger.debug(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
             if node.mother != None:
                 geno_m = genotypes[node.mother.indiv]
                 gam_m = gamete.Gamete.from_genotype(geno_m)
                 nmiss = p.update_maternal_gamete(gam_m)
                 if (nmiss[0]+nmiss[1]) > qerr(p.nhet*2, self.err):
                     logger.warning(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
-
+                elif (nmiss[0]+nmiss[1]>0):
+                    logger.debug(f"[from_geno] {node.mother.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
+                
             logger.debug(f".pat : {p.paternal_gamete}")
             logger.debug(f".mat : {p.maternal_gamete}")
             logger.debug(f"nresolved : {p.nresolved}")

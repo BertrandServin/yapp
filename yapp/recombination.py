@@ -64,7 +64,7 @@ class RecombAnalyser():
         return res
         
     @staticmethod
-    def get_crossovers(si, call=0.99):
+    def get_crossovers(si, call=0.999):
         """Find crossover boundaries from segregation indicators
         
         Arguments
