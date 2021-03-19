@@ -32,6 +32,7 @@ class PhaseData(object):
     -----------
      -- rawphase: dict of phase info, keys are offspring names, values
                   are phase vectors (0,1,-1)
+     -- mkpos: list of marker positions in centiMorgans (optional, if not given assumes 0.01 cM between markers)
 
      Attributes:
      -----------
@@ -44,8 +45,14 @@ class PhaseData(object):
      -- genetic map
     
     '''
-    def __init__(self,rawphase):
+    def __init__(self,rawphase,mkpos=None):
         self.rawphase=rawphase
+        if mkpos is None:
+            self.mkpos = None
+            self.recombination = self.recrate
+        else:
+            self.mkpos= mkpos
+            self.recombination = self.recrate_from_pos
         ## info_pairs stores pairs of inform. markers as keys and [N+,N-] as values.
         self.info_pairs={}
         ## For each offspring
@@ -75,6 +82,11 @@ class PhaseData(object):
             info_mk[k[0]]+=1
             info_mk[k[1]]+=1
         self.info_mk=sorted(info_mk.keys())
+    
+    def recrate_from_pos(self,i,j):
+        dtot=abs(self.mkpos[i]-self.mkpos[j])
+        return 0.5*(1-np.exp(-dtot/50))
+        
     @staticmethod
     def recrate(i,j,d=0.01):
         '''
@@ -150,7 +162,7 @@ if __name__=='__main__':
     T=PhaseData(test_phase)
     print("Info pairs:",*T.info_pairs.items())
     print("Info mk:",T.info_mk)
-    S=PhaseSolver(T.info_mk,T.info_pairs,T.recrate)
+    S=PhaseSolver(T.info_mk,T.info_pairs,T.recombination)
     S.add_constraints()
     phase=S.solve()
     print("Resolved phase:",*phase)

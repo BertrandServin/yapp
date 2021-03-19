@@ -130,7 +130,7 @@ class Gamete():
         return gam
     
     @classmethod
-    def from_wcsp_solver(cls, par_geno, dict_child_gam):
+    def from_wcsp_solver(cls, par_geno, dict_child_gam, mkpos=None):
         """
         Infer the gamete of the parent from transmitted gametes using a Weighted Constraint Satisfaction Problem
         
@@ -142,17 +142,16 @@ class Gamete():
            collection of gametes with key = offspring names
         """
         pg = Gamete.valid_genotype(par_geno)
-        ##het_mk = [ i for i,x in enumerate(pg) if x ==1]
         het_mk = np.where(pg==1)[0]
         hap_data = {}
         new_gam = Gamete()
         new_gam.haplotype = np.full_like(pg, -1)
         for k,v in dict_child_gam.items():
             hap_data[k] = list(dict_child_gam[k].haplotype[het_mk])
-        phase_data = wcsp.PhaseData(hap_data)
+        phase_data = wcsp.PhaseData(hap_data,mkpos)
         if len(phase_data.info_mk)>0:
             resolved_mk = [het_mk[i] for i in phase_data.info_mk]
-            S=wcsp.PhaseSolver(phase_data.info_mk,phase_data.info_pairs,phase_data.recrate)
+            S=wcsp.PhaseSolver(phase_data.info_mk,phase_data.info_pairs,phase_data.recombination)
             S.add_constraints()
             par_phase=S.solve()
             new_gam.haplotype[resolved_mk]=par_phase

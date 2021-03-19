@@ -26,9 +26,9 @@ def qerr( n, p, q=0.001):
     return binom(p=p,n=n).isf(q)
 
 def wcsp_phase( args):
-    node,p,children_gametes = args
+    node,p,children_gametes,recpos = args
     try:
-        wcsp_gam = gamete.Gamete.from_wcsp_solver(p.g, children_gametes)
+        wcsp_gam = gamete.Gamete.from_wcsp_solver(p.g, children_gametes, mkpos=recpos)
     except:
         logger.error("Could not run wcsp solver")
         raise
@@ -523,6 +523,7 @@ class Phaser():
         else:
             chrom_pairs = phases
         recmap=recmaps[region]
+        recpos=np.cumsum([0]+list(recmap))*100
         logger.info("\t1. Infer Segregation Indicators")
         pat_seg_tasks=[]
         mat_seg_tasks=[]
@@ -598,7 +599,7 @@ class Phaser():
                     phase_info = chpair.get_phase_info(1)#[x[0] if x[1]>0.999 else -1 for x in chpair.si_mat]
                     children_gametes[child.indiv]=gamete.Gamete.from_offspring_segregation(p.g,chpair.maternal_gamete, phase_info)
             if len(children_gametes)>0:
-                wcsp_tasks.append((node,p,children_gametes))
+                wcsp_tasks.append((node,p,children_gametes,recpos))
 
         logger.info(f"Phasing {len(wcsp_tasks)} parents with  WCSP")
         remaining_guys=[x[0].indiv for x in wcsp_tasks]
@@ -625,7 +626,7 @@ class Phaser():
         return chrom_pairs
 
             
-    def phase_samples_from_genotypes(self, region, ncpu=1, phases=None):
+    def phase_samples_from_genotypes(self, region, ncpu=1, phases=None, recrate=1):
         """Reconstruct paternal and maternal gametes in the pedigree 
         based on observed genotypes.
         Returns
@@ -636,6 +637,9 @@ class Phaser():
         logger.info("Phasing samples from genotypes")
         logger.info("Loading Genotypes")
         genotypes = self.get_mendelian_genotypes(region)
+        recmaps=self.recmap(recrate)
+        recmap=recmaps[region]
+        recpos=np.cumsum([0]+list(recmap))*100
         if phases == None:
             chrom_pairs = {}
             for node in self.pedigree:
@@ -694,7 +698,7 @@ class Phaser():
                 logger.debug(f".off : {gam_off}")
                 children_gametes[child.indiv]=gam_off
             if len(node.children)>2:
-                wcsp_tasks.append((node,p,children_gametes))
+                wcsp_tasks.append((node,p,children_gametes,recpos))
 
         logger.info(f"Phasing {len(wcsp_tasks)} parents with WCSP")
         start_time = time.time()
