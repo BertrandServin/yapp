@@ -608,7 +608,7 @@ class Phaser():
                     children_gametes[child.indiv]=chpair.paternal_gamete
                 elif child.mother is node:
                     children_gametes[child.indiv]=chpair.maternal_gamete
-            if len(children_gametes)>0:
+            if len(children_gametes)>5:
                 wcsp_tasks.append((node,p,children_gametes,recpos))
 
         logger.info(f"Phasing {len(wcsp_tasks)} parents with  WCSP")
@@ -707,7 +707,7 @@ class Phaser():
                         geno_other=None
                 gam_off = gamete.Gamete.from_offspring_genotype(geno_off,other_geno=geno_other)
                 children_gametes[child.indiv]=gam_off
-            if len(node.children)>2:
+            if len(node.children)>5:
                 wcsp_tasks.append((node,p,children_gametes,recpos))
 
         logger.info(f"Phasing {len(wcsp_tasks)} parents with WCSP")
