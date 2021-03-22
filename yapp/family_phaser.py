@@ -21,6 +21,11 @@ from . import vcf, gamete, pedigree, MALE, FEMALE
 
 logger = logging.getLogger(__name__)
 
+class PhaseError(Exception):
+    """Base class for Phase Errors"""
+    pass
+
+
 def qerr( n, p, q=0.001):
     '''(1-q) Quantile of the binomial(n,p)'''
     return binom(p=p,n=n).isf(q)
@@ -32,15 +37,7 @@ def wcsp_phase( args):
     except:
         logger.error("Could not run wcsp solver")
         raise
-    else:
-        p.update_unknown_gamete(wcsp_gam)
-        logger.debug(f"{node.indiv} -- [ "
-                     f"sex:{node.sex} "
-                     f"gen:{node.gen} "
-                     f"par:{(node.father!=None)+(node.mother!=None)} "
-                     f"off:{len(node.children)} "
-                     f"nresolved/nhet : {p.nresolved}/{p.nhet}]")
-    return (node.indiv,p)
+    return (node.indiv,wcsp_gam)
 
 def run_segregation_task(args):
     name, chpair_parent, gam, recmap = args
@@ -255,6 +252,8 @@ class ChromosomePair():
         """
         misses_pat,new_gam_p = gamete.Gamete.combine(self.paternal_gamete,prop_gam)
         misses_mat,new_gam_m = gamete.Gamete.combine(self.maternal_gamete,prop_gam)
+        if min([len(misses_pat),len(misses_mat)]) > 0.05*self.nhet:
+            raise PhaseError("Could not resolve origin of proposed gamete")
         if len(misses_mat) < len(misses_pat):
             return self.update_maternal_gamete(prop_gam) 
         else:
@@ -378,7 +377,10 @@ class Phaser():
         smp_mapping = {}
         nidx=np.array([ vcf_tmpl.samples.index(n.indiv) for n in self.pedigree])
         for reg in self.regions:
-            snps = self.data['variants'][reg]['ID']
+            try:
+                snps = self.data['variants'][reg]['ID']
+            except KeyError:
+                continue
             variants = [snp_mapping[x] for x in snps]
             ph  = np.array(self.data["phases"][reg]["gametes"])
             sel = np.zeros((ph.shape[0],ph.shape[2]), dtype=bool)
@@ -429,7 +431,11 @@ class Phaser():
         self.data.create_group("phases")
         for reg in self.regions:
             logger.info(f"Working on region {reg}")
-            phases = self.phase_samples_from_genotypes(reg, ncpu=ncpu)
+            try:
+                phases,ignored = self.phase_samples_from_genotypes(reg, ncpu=ncpu)
+            except KeyError:
+                logger.info(f"No data on region {reg}")
+                continue
             nhet = 0
             nresolved = 0
             for p in phases.values():
@@ -437,7 +443,7 @@ class Phaser():
                 nresolved += p.nresolved
             logger.info(f"[{reg}] Resolved {nresolved} out of {nhet} phases : {100*nresolved/nhet:.1f}%")
             sys.stdout.flush()
-            phases = self.phase_samples_from_segregations(reg, ncpu=ncpu, phases=phases)
+            phases = self.phase_samples_from_segregations(reg, ncpu=ncpu, phases=phases, ignore_child=ignored)
             nhet = 0
             nresolved = 0
             for p in phases.values():
@@ -505,7 +511,7 @@ class Phaser():
                 chpair.si_mat = segind
         return phases
                         
-    def phase_samples_from_segregations(self, region, ncpu=1, phases=None, recrate=1):
+    def phase_samples_from_segregations(self, region, ncpu=1, phases=None, ignore_child=defaultdict( lambda : False), recrate=1):
         """Infer segregation indicators in the pedigree.
 
         Arguments
@@ -519,15 +525,18 @@ class Phaser():
         logger.info("Phasing samples from segregations")
         recmaps = self.recmap(recrate)
         if phases == None:
-            chrom_pairs = self.phases_from_genotypes(region)
+            chrom_pairs,ignore_child = self.phases_from_genotypes(region)
         else:
             chrom_pairs = phases
+            
         recmap=recmaps[region]
         recpos=np.cumsum([0]+list(recmap))*100
         logger.info("\t1. Infer Segregation Indicators")
         pat_seg_tasks=[]
         mat_seg_tasks=[]
         for node in self.pedigree:
+            if ignore_child[node.indiv]:
+                continue
             chpair = chrom_pairs[node.indiv]
             logger.debug(f"{node.indiv} -- [ "
                           f"sex:{node.sex} "
@@ -541,8 +550,6 @@ class Phaser():
             if node.mother:
                 mat_seg_tasks.append( ( node.indiv, chrom_pairs[node.mother.indiv], chpair.maternal_gamete, recmap))
 
-        ## if inconsistent or uninformative -> ignore meioses for phasing parents
-        ignore_child=defaultdict( lambda : False)
         nmm = 0
         with Pool(cpu_count()) as workers:
             for indiv, segind in workers.imap_unordered(run_segregation_task, pat_seg_tasks):
@@ -554,11 +561,13 @@ class Phaser():
                 if maxprob<0.999:
                     ignore_child[node.indiv]=True
                 else:
+                    old_gam = chpair.paternal_gamete
                     new_gam = chpair_p.get_transmitted_from_segregation(chpair.si_pat)
                     nmiss = chpair.update_paternal_gamete(new_gam)
                     if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
                         logger.debug(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
                         ignore_child[node.indiv]=True
+                        chpair.update_paternal_gamete(old_gam)
                         nmm+=1
             for indiv, segind in workers.imap_unordered(run_segregation_task, mat_seg_tasks):
                 node = self.pedigree.nodes[indiv]
@@ -569,11 +578,13 @@ class Phaser():
                 if maxprob<0.999:
                     ignore_child[node.indiv]=True
                 else:
+                    old_gam = chpair.maternal_gamete
                     new_gam = chpair_m.get_transmitted_from_segregation(chpair.si_mat)
                     nmiss=chpair.update_maternal_gamete(new_gam)
                     if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
                         logger.debug(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
                         ignore_child[node.indiv]=True
+                        chpair.update_maternal_gamete(old_gam)
                         nmm+=1
         logger.info(f"Found {nmm} mismatches out of {len(pat_seg_tasks)+len(mat_seg_tasks)} tasks")
         logger.info("\t2. Update parental phases")
@@ -593,25 +604,26 @@ class Phaser():
                     continue
                 chpair = chrom_pairs[child.indiv]
                 if child.father is node:
-                    phase_info = chpair.get_phase_info(0)#[x[0] if x[1]>0.999 else -1 for x in chpair.si_pat]
-                    children_gametes[child.indiv]=gamete.Gamete.from_offspring_segregation(p.g,chpair.paternal_gamete, phase_info)
+                    children_gametes[child.indiv]=chpair.paternal_gamete
                 elif child.mother is node:
-                    phase_info = chpair.get_phase_info(1)#[x[0] if x[1]>0.999 else -1 for x in chpair.si_mat]
-                    children_gametes[child.indiv]=gamete.Gamete.from_offspring_segregation(p.g,chpair.maternal_gamete, phase_info)
+                    children_gametes[child.indiv]=chpair.maternal_gamete
             if len(children_gametes)>0:
                 wcsp_tasks.append((node,p,children_gametes,recpos))
 
         logger.info(f"Phasing {len(wcsp_tasks)} parents with  WCSP")
         remaining_guys=[x[0].indiv for x in wcsp_tasks]
         with Pool(ncpu) as workers:
-            results = workers.imap_unordered(wcsp_phase,wcsp_tasks)
+            results = workers.imap(wcsp_phase,wcsp_tasks)
             ntimeout=0
             while True:
                 try:
-                    indiv,pair = results.next(timeout=self.timeout_delay)
+                    indiv,new_gam = results.next(timeout=self.timeout_delay)
+                    p = chrom_pairs[indiv]
+                    try:
+                        p.update_unknown_gamete(new_gam)
+                    except PhaseError:
+                        logger.warning(f"Major inconsistency in phase data for individual {indiv} on region {region}. Will keep previous estimate.")
                     remaining_guys.remove(indiv)
-                    del chrom_pairs[indiv]
-                    chrom_pairs[indiv]=pair
                 except StopIteration:
                     break
                 except TimeoutError:
@@ -646,6 +658,7 @@ class Phaser():
                 chrom_pairs[node.indiv]=ChromosomePair(genotypes[node.indiv])
         else:
             chrom_pairs = phases
+        ignore_child=defaultdict( lambda : False)
         wcsp_tasks=[]
         logger.info("Constructing gametes")
         for node in self.pedigree:
@@ -707,15 +720,29 @@ class Phaser():
         logger.info(f"Phasing {len(wcsp_tasks)} parents with WCSP")
         start_time = time.time()
         with Pool(ncpu) as workers:
-            for indiv,pair in workers.imap_unordered(wcsp_phase,wcsp_tasks):
-                del chrom_pairs[indiv]
-                chrom_pairs[indiv]=pair
+            for indiv,new_gam in workers.imap(wcsp_phase,wcsp_tasks):
+                p = chrom_pairs[indiv]
+                try:
+                    p.update_unknown_gamete(new_gam)
+                except PhaseError:
+                    logger.warning(f"Major inconsistency in phase data for individual {indiv} on region {region}. "
+                                   f"I Will try to fix it. ")
+                    ## reset gamete to ignore parental information
+                    chrom_pairs[indiv]=ChromosomePair(genotypes[indiv])
+                    ignore_child[indiv]=True
+                    try:
+                        chrom_pairs[indiv].update_unknown_gamete(new_gam)
+                    except PhaseError:
+                        logger.warning(f"Could not resolve phasing problem for individual {indiv} on region {region}. "
+                                       f"try manually setting parental link to 0 in fam file")
+                    else:
+                        logger.warning("It Should be ok.")
         elapsed_time = time.time() - start_time
         tot_time = elapsed_time * ncpu
         time_per_task = tot_time / len(wcsp_tasks)
         self.timeout_delay = round( time_per_task ) + 1
         logger.info(f"Setting up timeout delay to {self.timeout_delay} seconds")
-        return chrom_pairs
+        return chrom_pairs, ignore_child
 
 
 def main(args):
