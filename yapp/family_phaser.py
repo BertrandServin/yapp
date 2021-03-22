@@ -252,7 +252,8 @@ class ChromosomePair():
         """
         misses_pat,new_gam_p = gamete.Gamete.combine(self.paternal_gamete,prop_gam)
         misses_mat,new_gam_m = gamete.Gamete.combine(self.maternal_gamete,prop_gam)
-        if min([len(misses_pat),len(misses_mat)]) > 0.05*self.nhet:
+        if min([len(misses_pat),len(misses_mat)]) > 0.1*self.nhet:
+            logger.debug(f"[update_unkown_gamete] {len(misses_pat)} {len(misses_mat)} {self.nhet}")
             raise PhaseError("Could not resolve origin of proposed gamete")
         if len(misses_mat) < len(misses_pat):
             return self.update_maternal_gamete(prop_gam) 
@@ -671,10 +672,6 @@ class Phaser():
             p = chrom_pairs[name]
 
             logger.debug("1. Initialize gametes")
-            logger.debug(f"nhet : {p.nhet}")
-            logger.debug(f"geno : {p.g}")
-            logger.debug(f".pat : {p.paternal_gamete}")
-            logger.debug(f".mat : {p.maternal_gamete}")
             logger.debug("2. Update gametes from Parents")
             if node.father != None:
                 geno_p = genotypes[node.father.indiv]
@@ -693,9 +690,6 @@ class Phaser():
                 elif (nmiss[0]+nmiss[1]>0):
                     logger.debug(f"[from_geno] {node.mother.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
                 
-            logger.debug(f".pat : {p.paternal_gamete}")
-            logger.debug(f".mat : {p.maternal_gamete}")
-            logger.debug(f"nresolved : {p.nresolved}")
 
             logger.debug(f"3. Update gametes from {len(node.children)} Offsprings")
             children_gametes = {}
@@ -712,7 +706,6 @@ class Phaser():
                     else:
                         geno_other=None
                 gam_off = gamete.Gamete.from_offspring_genotype(geno_off,other_geno=geno_other)
-                logger.debug(f".off : {gam_off}")
                 children_gametes[child.indiv]=gam_off
             if len(node.children)>2:
                 wcsp_tasks.append((node,p,children_gametes,recpos))
