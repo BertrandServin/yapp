@@ -430,6 +430,8 @@ class Phaser():
 
     def run(self, ncpu=cpu_count()):
         self.data.create_group("phases")
+        with open( self.prefix+'_yapp_phasestats.txt','w') as fstat:
+            print("Individual Sex Generation Nparents Nchildren region het resolved",file=fstat)
         for reg in self.regions:
             logger.info(f"Working on region {reg}")
             try:
@@ -455,6 +457,18 @@ class Phaser():
             phases = self.compute_segregations(reg, phases=phases)
             
             logger.info(f"Storing results")
+            with open( self.prefix+'_yapp_phasestats.txt','a') as fstat:
+                for node in self.pedigree:
+                    p = phases[node.indiv]
+                    print(f"{node.indiv}  "
+                          f"{node.sex} "
+                          f"{node.gen} "
+                          f"{(node.father!=None)+(node.mother!=None)} "
+                          f"{len(node.children)} "
+                          f"{reg} "
+                          f"{p.nhet} "
+                          f"{p.nresolved}",file=fstat)
+            
             nind,nsnp=self.data['genotypes'][reg].shape
             ph_g=self.data['phases'].create_group(reg)
             ##ph_g.create_dataset('gametes',shape=(nind,2,nsnp),dtype='int8', fill_value=-2)
@@ -592,12 +606,7 @@ class Phaser():
         wcsp_tasks=[]
         for node in self.pedigree:
             p=chrom_pairs[node.indiv]
-            logger.debug(f"{node.indiv} -- [ "
-                  f"sex:{node.sex} "
-                  f"gen:{node.gen} "
-                  f"par:{(node.father!=None)+(node.mother!=None)} "
-                  f"off:{len(node.children)} "
-                  f"nhet : {p.nhet} ]")
+
             children_gametes = {}
             for child in node.children:
                 if ignore_child[child.indiv]:
