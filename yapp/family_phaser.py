@@ -244,7 +244,7 @@ class ChromosomePair():
     def update_maternal_gamete(self, prop_gam):
         return self.update_gamete( prop_gam, 1)
 
-    def update_unknown_gamete(self, prop_gam):
+    def update_unknown_gamete(self, prop_gam, err):
         """Update the phase when the origin of the prop_gam is not known.
         Tries to update paternal and maternal and keeps the one that leads 
         to the fewest # of mismatches.
@@ -252,8 +252,8 @@ class ChromosomePair():
         """
         misses_pat,new_gam_p = gamete.Gamete.combine(self.paternal_gamete,prop_gam)
         misses_mat,new_gam_m = gamete.Gamete.combine(self.maternal_gamete,prop_gam)
-        if min([len(misses_pat),len(misses_mat)]) > 0.1*self.nhet:
-            logger.debug(f"[update_unkown_gamete] {len(misses_pat)} {len(misses_mat)} {self.nhet}")
+        if min([len(misses_pat),len(misses_mat)]) > qerr(self.nhet, err, 0.01):
+            logger.debug(f"[update_unknown_gamete] {len(misses_pat)} {len(misses_mat)} {self.nhet}")
             raise PhaseError("Could not resolve origin of proposed gamete")
         if len(misses_mat) < len(misses_pat):
             return self.update_maternal_gamete(prop_gam) 
@@ -290,8 +290,10 @@ class ChromosomePair():
         return nmiss
 
 class Phaser():
-    def __init__(self,vcf_file,ped_file, out_prfx, region=None, focalID=None):
+    def __init__(self,vcf_file,ped_file, out_prfx, region=None, focalID=None, err=1e-3, rho=1):
         self.prefix=out_prfx
+        self.err=err
+        self.rho=rho
         if region != None:
             self.prefix +="_"+region
         if focalID != None:
@@ -306,7 +308,6 @@ class Phaser():
         self.data = vcf.vcf2zarr(vcf_file, output_prefix=self.prefix,reg=region, samples=pedindivs)
         self.vcf_out_file_name = f"{self.prefix}_phased.vcf.gz"
         self.vcf_file_name=f"{out_prfx}.vcf.gz"
-        self.err=1e-3
         genosmp=defaultdict( lambda: False)
         for g in self.genotyped_samples:
             genosmp[g]=True
@@ -580,7 +581,7 @@ class Phaser():
                     new_gam = chpair_p.get_transmitted_from_segregation(chpair.si_pat)
                     nmiss = chpair.update_paternal_gamete(new_gam)
                     if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
-                        logger.debug(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
+                        logger.warning(f"{node.father.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
                         ignore_child[node.indiv]=True
                         chpair.update_paternal_gamete(old_gam)
                         nmm+=1
@@ -597,7 +598,7 @@ class Phaser():
                     new_gam = chpair_m.get_transmitted_from_segregation(chpair.si_mat)
                     nmiss=chpair.update_maternal_gamete(new_gam)
                     if (nmiss[0]+nmiss[1]) > qerr(chpair.nhet*2, self.err, q=1e-3/(len(pat_seg_tasks)+len(mat_seg_tasks))):
-                        logger.debug(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
+                        logger.warning(f"{node.mother.indiv}[mat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch")
                         ignore_child[node.indiv]=True
                         chpair.update_maternal_gamete(old_gam)
                         nmm+=1
@@ -617,7 +618,7 @@ class Phaser():
                     children_gametes[child.indiv]=chpair.paternal_gamete
                 elif child.mother is node:
                     children_gametes[child.indiv]=chpair.maternal_gamete
-            if len(children_gametes)>5:
+            if len(children_gametes)>0:
                 wcsp_tasks.append((node,p,children_gametes,recpos))
 
         logger.info(f"Phasing {len(wcsp_tasks)} parents with  WCSP")
@@ -630,9 +631,18 @@ class Phaser():
                     indiv,new_gam = results.next(timeout=self.timeout_delay)
                     p = chrom_pairs[indiv]
                     try:
-                        p.update_unknown_gamete(new_gam)
+                        p.update_unknown_gamete(new_gam,self.err)
                     except PhaseError:
-                        logger.warning(f"Major inconsistency in phase data for individual {indiv} on region {region}. Will keep previous estimate.")
+                        logger.info(f"Inconsistency in phase data for individual {indiv} on region {region}. Will try to fix it.")
+                        si=p.get_segregation_indicators(new_gam, recmap)
+                        si_gam = gamete.Gamete.from_offspring_segregation( p.g, new_gam, [x[0] for x in si])
+                        try:
+                            chrom_pairs[indiv].update_unknown_gamete(si_gam,self.err)
+                        except PhaseError:
+                            logger.warning(f"Could not resolve phasing problem for individual {indiv} on region {region}. "
+                                           f"I Will keep previous estimate")
+                        else:
+                            logger.info("Fixed it.")
                     remaining_guys.remove(indiv)
                 except StopIteration:
                     break
@@ -716,7 +726,7 @@ class Phaser():
                         geno_other=None
                 gam_off = gamete.Gamete.from_offspring_genotype(geno_off,other_geno=geno_other)
                 children_gametes[child.indiv]=gam_off
-            if len(node.children)>5:
+            if len(node.children)>2:
                 wcsp_tasks.append((node,p,children_gametes,recpos))
 
         logger.info(f"Phasing {len(wcsp_tasks)} parents with WCSP")
@@ -725,20 +735,20 @@ class Phaser():
             for indiv,new_gam in workers.imap(wcsp_phase,wcsp_tasks):
                 p = chrom_pairs[indiv]
                 try:
-                    p.update_unknown_gamete(new_gam)
+                    p.update_unknown_gamete(new_gam,self.err)
                 except PhaseError:
-                    logger.warning(f"Major inconsistency in phase data for individual {indiv} on region {region}. "
+                    logger.info(f"Inconsistency in phase data for individual {indiv} on region {region}. "
                                    f"I Will try to fix it. ")
-                    ## reset gamete to ignore parental information
-                    chrom_pairs[indiv]=ChromosomePair(genotypes[indiv])
-                    ignore_child[indiv]=True
+                    ## correct switch errors
+                    si=p.get_segregation_indicators(new_gam, recmap)
+                    si_gam = gamete.Gamete.from_offspring_segregation( p.g, new_gam, [x[0] for x in si])
                     try:
-                        chrom_pairs[indiv].update_unknown_gamete(new_gam)
+                        chrom_pairs[indiv].update_unknown_gamete(si_gam,self.err)
                     except PhaseError:
                         logger.warning(f"Could not resolve phasing problem for individual {indiv} on region {region}. "
                                        f"try manually setting parental link to 0 in fam file")
                     else:
-                        logger.warning("It Should be ok.")
+                        logger.info("Fixed it.")
         elapsed_time = time.time() - start_time
         tot_time = elapsed_time * ncpu
         time_per_task = tot_time / len(wcsp_tasks)
