@@ -12,14 +12,6 @@ from . import vcf, gamete, pedigree, family_phaser, MALE, FEMALE
 
 logger = logging.getLogger(__name__)
 
-def post_G( x, d):
-    nh = len(x)
-    lik00 = binom.pmf( x, d, p=0.5*f)*p00
-    lik01 = binom.pmf( x, d, p=0.5*(f+0.5))*p01
-    lik11 = binom.pmf( x, d, p=0.5*(f+1))*p11
-    sump = lik00 + lik01 + lik11
-    return np.array([ x/sump for x in [lik00, lik01, lik11]])
-
 def genotype_from_gametes(gametes, pgeno=0.95, gerr=1e-2):
     '''Infer genotype from an array of gametes
 
@@ -58,6 +50,7 @@ def recmap( phys_pos, recrate=1):
 
 def main(args):
     prfx=args.prfx
+    rho=args.rho
     vcf_file = f"{prfx}.vcf.gz"
     fam_file = f"{prfx}.fam"
 
@@ -89,7 +82,7 @@ def main(args):
                 logger.debug(f'h.mat: {chrom_pair.maternal_gamete.haplotype[:10]}')
 
                 logger.info('\tPhase from segregations')
-                reg_map = recmap(np.array(gam_data[f"variants/{reg}/POS"]))
+                reg_map = recmap(np.array(gam_data[f"variants/{reg}/POS"]),recrate=args.rho)
                 inconsistencies=[ defaultdict(int), defaultdict(int) ]
                 for sperm in children_gametes.values():
                     si_sperm = chrom_pair.get_segregation_indicators( sperm , recmap=reg_map)

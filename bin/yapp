@@ -28,6 +28,8 @@ def yapp_parser():
     parser_phase.add_argument('prfx', type=str, help='prefix for input / output files')
     parser_phase.add_argument('--reg', type=str, help='Region to work on in BED format ( chr[:start-end] )',default=None)
     parser_phase.add_argument('--focalID', type=str, help='Run on subpedigree containing individual TOTO',default=None,metavar='TOTO')
+    parser_phase.add_argument('--err',type=float, help='Assume a genotyping error rate of E', metavar='E', default=1e-2)
+    parser_phase.add_argument('--rho',type=float, help='Set average recombination rate to R cM/Mb', metavar='R', default=1)
     parser_phase.set_defaults(func=family_phaser.main)
 
     # Recomb
@@ -40,6 +42,7 @@ def yapp_parser():
     parser_sperm.add_argument('prfx', type=str, help='prefix for input / output files')
     parser_sperm.add_argument('--pgeno', type=float, help='Call parent genotype if P(G)>P', metavar='P', default=0.95)
     parser_sperm.add_argument('--err',type=float, help='Assume a genotyping error rate of E', metavar='E', default=1e-2)
+    parser_sperm.add_argument('--rho',type=float, help='Set recombination rate to R cM/Mb', metavar='C', default=1)
     parser_sperm.set_defaults(func=sperm.main)
 
     return parser
