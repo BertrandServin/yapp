@@ -5,8 +5,11 @@ This module exports classes and functions to read and manipulate pedigrees.
 A pedigree is a directed graph of familial relationships (father, mother, offspring). 
 """
 import warnings
+import logging
 from collections import defaultdict
 from . import MALE, FEMALE
+
+logger = logging.getLogger(__name__)
 
 class PedNode():
     """A node in the pedigree that consists of an individual and its direct relatives.
@@ -36,8 +39,9 @@ class PedNode():
     def __str__(self):
         output = (
             f"*** {self.__indiv} ***\n"
-            f"Father : {self.father is None and 'NULL' or self.father.indiv}\n"
-            f"Mother : {self.mother is None and 'NULL' or self.mother.indiv}\n"
+            f"Father   : {self.father is None and 'NULL' or self.father.indiv}\n"
+            f"Mother   : {self.mother is None and 'NULL' or self.mother.indiv}\n"
+            f"Children : [ {*self.children,} ]" 
             )
         return output
 
@@ -149,18 +153,18 @@ class Pedigree():
                 buf = ligne.split()
                 ind = buf[1]
                 if buf[2] == '0':
-                    f = None
+                    fa = None
                     if parent_from_FID and default_parent==MALE:
-                        f = buf[0]
+                        fa = buf[0]
                 else:
-                    f = buf[2]
+                    fa = buf[2]
                 if buf[3] == '0':
-                    m = None
+                    mo = None
                     if parent_from_FID and default_parent==FEMALE:
-                        m = buf[0]
+                        mo = buf[0]
                 else:
-                    m = buf[3]
-                relations.append((ind, f, m))
+                    mo = buf[3]
+                relations.append((ind, fa, mo))
             ped = cls()
             for rel in relations:
                 if rel[1] is not None:
@@ -169,6 +173,7 @@ class Pedigree():
                     ped.set_mother(rel[0],rel[2])
                 if rel[1]==None and rel[2]==None:
                     ped.add_indiv(rel[0])
+                node=ped.nodes[rel[0]]
         return ped
     
     @classmethod
@@ -239,7 +244,10 @@ class Pedigree():
         
     def add_indiv(self,indiv):
         ''' Add a new guy to the pedigree'''
-        self.nodes[indiv]=PedNode(indiv)
+        if indiv in self.nodes:
+            logger.debug(f"{indiv} is already there")
+        else:
+            self.nodes[indiv]=PedNode(indiv)
 
     def del_indiv(self,indiv):
         """Remove an individual from the pedigree. Links to its node are removed.

@@ -315,6 +315,7 @@ class Phaser():
         for indiv in pedindivs:
             if not genosmp[indiv]:
                 rm_node = ped.del_indiv(indiv)
+                logger.debug(f"Ignoring {indiv} as it is not genotyped")
                 self.ignored_indivs.append(rm_node)
         self.pedigree=ped
         ## Run parameters
@@ -563,6 +564,7 @@ class Phaser():
                 chpair.si_pat = segind
                 maxprob = max([ x[1] for x in segind])
                 if maxprob<0.999:
+                    logger.debug(f"{node.indiv} segregations cannot be resolved")
                     ignore_child[node.indiv]=True
                 else:
                     old_gam = chpair.paternal_gamete
@@ -580,6 +582,7 @@ class Phaser():
                 chpair.si_mat = segind
                 maxprob = max([ x[1] for x in segind])
                 if maxprob<0.999:
+                    logger.debug(f"{node.indiv} segregations cannot be resolved")
                     ignore_child[node.indiv]=True
                 else:
                     old_gam = chpair.maternal_gamete
@@ -599,7 +602,7 @@ class Phaser():
             children_gametes = {}
             for child in node.children:
                 if ignore_child[child.indiv]:
-                    logger.debug(f"Ignoring {child.indiv}")
+                    logger.debug(f"Ignoring {child.indiv} as requested")
                     continue
                 chpair = chrom_pairs[child.indiv]
                 if child.father is node:
@@ -739,9 +742,10 @@ class Phaser():
                         logger.debug("Fixed it.")
         elapsed_time = time.time() - start_time
         tot_time = elapsed_time * ncpu
-        time_per_task = tot_time / len(wcsp_tasks)
-        self.timeout_delay = round( time_per_task ) + 1
-        logger.debug(f"Set timeout delay to {self.timeout_delay} seconds")
+        if len(wcsp_tasks)>0:
+            time_per_task = tot_time / len(wcsp_tasks)
+            self.timeout_delay = round( time_per_task ) + 1
+            logger.debug(f"Set timeout delay to {self.timeout_delay} seconds")
         return chrom_pairs, ignore_child
 
 
