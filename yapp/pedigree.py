@@ -271,7 +271,8 @@ class Pedigree():
             if n.mother:
                 n.mother.children.remove(n)
             return n
-    
+        
+        
     def add_node(self,node):
         """Add a node in the pedigree. 
         Familial links are restored.
@@ -411,6 +412,13 @@ class Pedigree():
         """List of unrelated individuals with no parents and no child in the pedigree"""
         return [x.indiv for x in self.founders if len(x.children)==0]
 
+    def del_unrelated(self):
+        """Remove unrelated individuals from the pedigree"""
+        torm = self.unrelated_individuals[:]
+        for indiv in torm:
+            logger.debug(f"Removing {indiv} as it is not related to anyone" )
+            self.del_indiv(indiv)
+            
     def build_families(self):
         '''
         Cluster individuals by families

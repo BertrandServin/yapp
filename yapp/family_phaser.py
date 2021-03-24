@@ -300,6 +300,7 @@ class Phaser():
             self.prefix +="_"+focalID
         ## individuals
         ped=pedigree.Pedigree.from_fam_file(ped_file)
+        ped.del_unrelated()
         if focalID != None:
             ped=ped.get_family(focalID)
         self.ped_file_name=ped_file
@@ -456,7 +457,7 @@ class Phaser():
                 nresolved += p.nresolved
             logger.info(f"[{reg}] Resolved {nresolved} out of {nhet} phases : {100*nresolved/nhet:.1f}%")
             ## Final estimation of segregation indicators once phases are inferred
-            phases = self.compute_segregations(reg, phases=phases)
+            _ = self.compute_segregations(reg, phases=phases)
             
             logger.info(f"Storing results")
             with open( self.prefix+'_yapp_phasestats.txt','a') as fstat:
@@ -548,6 +549,7 @@ class Phaser():
         mat_seg_tasks=[]
         for node in self.pedigree:
             if ignore_child[node.indiv]:
+                logger.debug(f"Ignoring {node.indiv} as requested")
                 continue
             chpair = chrom_pairs[node.indiv]
             if node.father:
@@ -564,7 +566,7 @@ class Phaser():
                 chpair.si_pat = segind
                 maxprob = max([ x[1] for x in segind])
                 if maxprob<0.999:
-                    logger.debug(f"{node.indiv} segregations cannot be resolved")
+                    logger.debug(f"Ignoring {node.indiv} as segregations cannot be resolved confidently")
                     ignore_child[node.indiv]=True
                 else:
                     old_gam = chpair.paternal_gamete
@@ -582,7 +584,7 @@ class Phaser():
                 chpair.si_mat = segind
                 maxprob = max([ x[1] for x in segind])
                 if maxprob<0.999:
-                    logger.debug(f"{node.indiv} segregations cannot be resolved")
+                    logger.debug(f"Ignoring {node.indiv} as segregations cannot be resolved confidently")
                     ignore_child[node.indiv]=True
                 else:
                     old_gam = chpair.maternal_gamete
@@ -645,6 +647,15 @@ class Phaser():
                     else:
                         logger.warning(f"Result time out : {len(remaining_guys)} tasks remaining, will wait a bit more ...")
                         ntimeout += 1
+        for node in self.pedigree:
+            p=chrom_pairs[node.indiv]
+            logger.debug(f"[from_seg] {node.indiv} -- [ "
+                         f"sex:{node.sex} "
+                         f"gen:{node.gen} "
+                         f"par:{(node.father!=None)+(node.mother!=None)} "
+                         f"off:{len(node.children)} "
+                         f"res: {p.nresolved}/{p.nhet}]")
+
         return chrom_pairs
 
             
@@ -657,7 +668,7 @@ class Phaser():
             regions as keys, dict( name : ChromosomePair) as value
         """
         logger.info("Phasing samples from genotypes")
-        logger.info("Loading Genotypes")
+        logger.info("\t1. Loading Genotypes")
         genotypes = self.get_mendelian_genotypes(region)
         recmaps=self.recmap(recrate)
         recmap=recmaps[region]
@@ -670,18 +681,11 @@ class Phaser():
             chrom_pairs = phases
         ignore_child=defaultdict( lambda : False)
         wcsp_tasks=[]
-        logger.info("Constructing gametes")
+        logger.info("\t2. Constructing gametes")
         for node in self.pedigree:
             name = node.indiv
-            logger.debug(f"{name} -- [ "
-                          f"sex:{node.sex} "
-                          f"gen:{node.gen} "
-                          f"par:{(node.father!=None)+(node.mother!=None)} "
-                          f"off:{len(node.children)} ]")
             p = chrom_pairs[name]
 
-            logger.debug("1. Initialize gametes")
-            logger.debug("2. Update gametes from Parents")
             if node.father != None:
                 geno_p = genotypes[node.father.indiv]
                 gam_p = gamete.Gamete.from_genotype(geno_p)
@@ -700,7 +704,6 @@ class Phaser():
                     logger.debug(f"[from_geno] {node.mother.indiv}[pat] -> {node.indiv} :{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
                 
 
-            logger.debug(f"3. Update gametes from {len(node.children)} Offsprings")
             children_gametes = {}
             for child in node.children:
                 geno_off = genotypes[child.indiv]
@@ -716,10 +719,10 @@ class Phaser():
                         geno_other=None
                 gam_off = gamete.Gamete.from_offspring_genotype(geno_off,other_geno=geno_other)
                 children_gametes[child.indiv]=gam_off
-            if len(node.children)>2:
+            if len(node.children)>0:
                 wcsp_tasks.append((node,p,children_gametes,recpos))
 
-        logger.info(f"Phasing {len(wcsp_tasks)} parents with WCSP")
+        logger.info(f"\t\tPhasing {len(wcsp_tasks)} parents with WCSP")
         start_time = time.time()
         with Pool(ncpu) as workers:
             for indiv,new_gam in workers.imap(wcsp_phase,wcsp_tasks):
@@ -746,6 +749,15 @@ class Phaser():
             time_per_task = tot_time / len(wcsp_tasks)
             self.timeout_delay = round( time_per_task ) + 1
             logger.debug(f"Set timeout delay to {self.timeout_delay} seconds")
+        for node in self.pedigree:
+            p=chrom_pairs[node.indiv]
+            logger.debug(f"[from_geno] {node.indiv} -- [ "
+                 f"sex:{node.sex} "
+                 f"gen:{node.gen} "
+                 f"par:{(node.father!=None)+(node.mother!=None)} "
+                 f"off:{len(node.children)} "
+                 f"res: {p.nresolved}/{p.nhet}]")
+
         return chrom_pairs, ignore_child
 
 
