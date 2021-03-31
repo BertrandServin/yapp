@@ -159,7 +159,7 @@ def main(args):
                     else:
                         mat_a = alt[i]
                     print(
-                        f"{chrom[i]} {rs} 0 {pos[i]}"
+                        f"{chrom[i]} {rs} 0 {pos[i]} "
                         f"{pat_a.decode()} {mat_a.decode()}",
                         file=ftped)
     return
