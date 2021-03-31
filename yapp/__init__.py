@@ -1,3 +1,6 @@
+"""
+YAPP : Yet Another Phasing Program
+"""
 import logging
 
 logger = logging.getLogger(__name__)

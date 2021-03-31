@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# pylint: disable=C0301,C0103,C0116
 """
 Yapp module family_phaser.py
 
@@ -9,7 +10,7 @@ import sys
 import logging
 from collections import defaultdict
 import time
-from multiprocessing import Pool, cpu_count, TimeoutError
+from multiprocessing import Pool, cpu_count, TimeoutError # noqa pylint: disable=W0622
 import bz2
 import pickle
 import numpy as np
@@ -22,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 class PhaseError(Exception):
     """Base class for Phase Errors"""
-    pass
 
 
 def qerr(n, p, q=0.001):
@@ -31,6 +31,7 @@ def qerr(n, p, q=0.001):
 
 
 def wcsp_phase(args):
+    """parallel WCSP function """
     node, p, children_gametes, recpos = args
     wcsp_gam = gamete.Gamete.from_wcsp_solver(
         p.g,
@@ -41,11 +42,13 @@ def wcsp_phase(args):
 
 
 def run_segregation_task(args):
+    """parallele segregation function """
     name, chpair_parent, gam, recmap = args
     return name, chpair_parent.get_segregation_indicators(gam, recmap)
 
 
 class ChromosomePair():
+    """A class to manipulare a pair of chromosomes """
     def __init__(self, genotype):
         self.g = gamete.Gamete.valid_genotype(genotype)
         self.H = [gamete.Gamete.from_genotype(self.g),
@@ -545,7 +548,7 @@ class Phaser():
         logger.info(f"Computing segregations on region {region}")
         recmaps = self.recmap(recrate)
         if phases is None:
-            chrom_pairs = self.phases_from_genotypes(region)
+            chrom_pairs = self.phase_samples_from_genotypes(region)
         else:
             chrom_pairs = phases
         recmap = recmaps[region]
@@ -594,7 +597,7 @@ class Phaser():
         logger.info("Phasing samples from segregations")
         recmaps = self.recmap(recrate)
         if phases is None:
-            chrom_pairs, ignore_child = self.phases_from_genotypes(region)
+            chrom_pairs, ignore_child = self.phase_samples_from_genotypes(region)
         else:
             chrom_pairs = phases
 
@@ -788,7 +791,7 @@ class Phaser():
                     logger.warning(
                         f"[from_geno] {node.father.indiv}[pat] -> {node.indiv}:" # noqa
                         f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
-                elif (nmiss[0]+nmiss[1] > 0):
+                elif nmiss[0]+nmiss[1] > 0:
                     logger.debug(
                         f"[from_geno] {node.father.indiv}[pat] -> {node.indiv}:" # noqa
                         f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
@@ -800,7 +803,7 @@ class Phaser():
                     logger.warning(
                         f"[from_geno] {node.mother.indiv}[mat] -> {node.indiv}:" # noqa
                         f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
-                elif (nmiss[0]+nmiss[1] > 0):
+                elif (nmiss[0]+nmiss[1]) > 0:
                     logger.debug(
                         f"[from_geno] {node.mother.indiv}[pat] -> {node.indiv}:" # noqa
                         f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches")
