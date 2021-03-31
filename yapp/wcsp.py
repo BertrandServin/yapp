@@ -15,6 +15,7 @@ T3: (0,4),(4,6)
 Genetic distance is assumed to be 0.1 cM between each marker pair
 
 '''
+# pylint: disable=C0103
 from collections import defaultdict
 import numpy as np
 import Numberjack as nj
@@ -25,7 +26,7 @@ test_phase = {'T1': [1, -1, -1, 0, 1, -1, 1],
               'T4': [-1, -1, -1, -1, -1, -1, -1]}
 
 
-class PhaseData(object):
+class PhaseData():
     '''
     Class to format phase information data into WCSP variables
 
@@ -83,12 +84,15 @@ class PhaseData(object):
                 Nvec[1-npair] += 1
         # informative markers are all mks seen in pairs
         info_mk = defaultdict(int)
-        for k in self.info_pairs.keys():
+        for k in self.info_pairs:
             info_mk[k[0]] += 1
             info_mk[k[1]] += 1
         self.info_mk = sorted(info_mk.keys())
 
     def recrate_from_pos(self, i, j):
+        """Returns recombination rate between marker i and j
+        from their positions (in cM).
+        """
         dtot = abs(self.mkpos[i]-self.mkpos[j])
         return 0.5*(1-np.exp(-dtot/50))
 
@@ -102,7 +106,7 @@ class PhaseData(object):
         return 0.5*(1-np.exp(-dtot/50))
 
 
-class PhaseSolver(object):
+class PhaseSolver():
     '''
     A class to Solve the phase of a parent.
 
@@ -122,8 +126,8 @@ class PhaseSolver(object):
         self.L = len(self.mk)
         try:
             assert self.L > 1
-        except AssertionError:
-            raise ValueError("WCSP problem must have size > 1")
+        except AssertionError as e:
+            raise ValueError("WCSP problem must have size > 1") from e
         # Initialize Optim. model
         # Creates an array of phase indicators
         self.Variables = nj.VarArray(self.L)
@@ -152,10 +156,10 @@ class PhaseSolver(object):
             else:
                 cost = [0, Wkl, Wkl, 0]
             cost = [int(x) for x in cost]
-            self.constraints.append(nj.PostBinary(hk, hl, cost))
-        # print("Constraints:",*self.constraints,sep='\n')
+            self.constraints.append(nj.PostBinary(hk, hl, cost))  # noqa pylint: disable=no-member
 
     def solve(self, verbose=0):
+        """Solve the WCSP and returns the inferred gamete"""
         model = nj.Model()
         for c in self.constraints:
             model.add(c)
