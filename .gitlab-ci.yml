@@ -17,4 +17,4 @@ flake8:
 pylint:
   stage: Static Analysis
   script:
-    - pylint -E yapp/*.py
+    - pylint --ignore=wcsp.py -E yapp/*.py
