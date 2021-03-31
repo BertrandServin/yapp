@@ -437,9 +437,17 @@ def vcf2zarr(fname, output_prefix=None, mode=default_mode,
     fz.attrs['archive'] = fzname
     smp = v.samples  # might differ if some requested are not found
     if reg is None:
-        regions = v.seqnames
+        _regions = v.seqnames
     else:
-        regions = [reg]
+        _regions = [reg]
+
+    regions = []
+    for r in _regions:
+        ns = len([s for s in v(r)])
+        if ns > 0:
+            regions.append(r)
+    if len(regions) < 1:
+        raise IOError(f"No SNP found in {fname}")
 
     logger.info("Creating Archive structure")
     fz['samples'] = zarr.array(smp, dtype='U50')
