@@ -18,7 +18,7 @@ Genetic distance is assumed to be 0.1 cM between each marker pair
 # pylint: disable=C0103
 from collections import defaultdict
 import numpy as np
-import Numberjack as nj # pylint disable=E0401
+import Numberjack as nj  # pylint disable=import-error
 
 test_phase = {'T1': [1, -1, -1, 0, 1, -1, 1],
               'T2': [-1, -1, -1, 0, 1, -1, 0],
