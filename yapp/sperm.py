@@ -77,6 +77,7 @@ def main(args):
         logger.debug(f"\n {gam_data.tree()}")
         with open(f"{oprfx}.tped", "w") as ftped:
             for reg in gam_data['regions']:
+                logger.info(f"[{trgt_i}] Region {reg}")
                 gam_hap = np.array(gam_data[f'genotypes/{reg}'])
                 g = genotype_from_gametes(
                     gam_hap, pgeno=args.pgeno, gerr=args.err)
