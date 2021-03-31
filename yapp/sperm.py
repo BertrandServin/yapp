@@ -56,6 +56,7 @@ def recmap(phys_pos, recrate=1):
 def main(args):
     prfx = args.prfx
     # rho = args.rho
+    err = args.err
     vcf_file = f"{prfx}.vcf.gz"
     fam_file = f"{prfx}.fam"
 
@@ -91,7 +92,7 @@ def main(args):
                 logger.debug(f"{g[:10]}")
                 logger.debug('-'*10)
                 logger.debug(f"WCSP: {wcsp_gam.haplotype[:10]}")
-                chrom_pair.update_unknown_gamete(wcsp_gam)
+                chrom_pair.update_unknown_gamete(wcsp_gam, err)
                 logger.debug(
                     f'h.pat: {chrom_pair.paternal_gamete.haplotype[:10]}')
                 logger.debug(
