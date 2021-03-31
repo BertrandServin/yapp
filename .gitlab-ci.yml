@@ -4,6 +4,7 @@ before_script:
   - python --version
   - pip install -r requirements.txt
   - pip install flake8
+  - pip install pylint
 
 stages:
   - Static Analysis
@@ -12,3 +13,8 @@ flake8:
   stage: Static Analysis
   script:
   - flake8 --max-line-length=120 yapp/*.py
+
+pylint:
+  stage: Static Analysis
+  script:
+    - pylint -E yapp/*.py
