@@ -6,11 +6,12 @@ def readme():
         return f.read()
 
 
-setup(name='yapp',
+setup(name='yappgen',
       version='0.1',
       description='Yet Another Phasing Program',
       long_description=readme(),
-      url='https://github.com/BertrandServin/yapp',
+      long_description_content_type='text/markdown',
+      url='https://forgemia.inra.fr/bertrand.servin/yapp',
       author='Bertrand Servin',
       author_email='bertrand.servin@inrae.fr',
       license='LGPLv2.1',
