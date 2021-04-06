@@ -7,6 +7,7 @@ fasteners==0.16
 fastphase==1.2
 h5py==3.2.1
 humanfriendly==9.1
+numba==0.53.1
 numcodecs==0.7.3
 numpy==1.20.2
 scipy==1.6.2
