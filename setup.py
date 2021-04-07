@@ -7,7 +7,7 @@ def readme():
 
 
 setup(name='yappgen',
-      version='0.1',
+      version='0.2a',
       description='Yet Another Phasing Program',
       long_description=readme(),
       long_description_content_type='text/markdown',
