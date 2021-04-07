@@ -118,6 +118,7 @@ class OriginTracer():
         Ltot = 0
         GRM = np.zeros((N, N), dtype=np.float)
         for reg in phaser.regions:
+            logger.info(f"\tAccumulate region {reg}")
             origins = np.array(phaser.data[f'linkage/{reg}/origins'])
             L = origins.shape[2]
             compute_grm(N, L, origins, GRM)
