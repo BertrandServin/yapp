@@ -133,17 +133,21 @@ class OriginTracer():
         GRM /= 2*Ltot
 
         logger.info("writing GRM to disk")
-        phaser.data['linkage/pedGRM'] = GRM
         with open(phaser.prefix+'_yapp_pedGRM.txt', 'w') as fout:
-            print("id1\tid2\tkinship", file=fout)
+            print("id1 id2 kinship", file=fout)
             for i in range(N):
                 for j in range(i, N):
-                    print(
-                        samples[i],
-                        samples[j],
-                        GRM[i, j],
-                        file=fout
-                    )
+                    if GRM[i, j] > 0:
+                        print(
+                            samples[i],
+                            samples[j],
+                            GRM[i, j],
+                            file=fout
+                        )
+        for i in range(2,N):
+            for j in range(1,i):
+                GRM[i, j] = GRM[j, i]
+        phaser.data['linkage/pedGRM'] = GRM
 
 
 def main(args):
