@@ -8,21 +8,27 @@ import logging
 from collections import defaultdict
 import numpy as np
 from zarr.errors import ContainsGroupError
-from numba import njit
+from numba import njit, prange
 from . import family_phaser
 
 logger = logging.getLogger(__name__)
 
 
-@njit
+@njit(parallel=True)
 def compute_grm(nindiv, nsnp, origins, outgrm):
     for i in range(nindiv):
-        for j in range(nindiv):
+        for j in prange(i,nindiv):
+            val = 0
             for ell in range(nsnp):
-                outgrm[i, j] += (origins[i, 0, ell] == origins[j, 0, ell])
-                outgrm[i, j] += (origins[i, 1, ell] == origins[j, 0, ell])
-                outgrm[i, j] += (origins[i, 0, ell] == origins[j, 1, ell])
-                outgrm[i, j] += (origins[i, 1, ell] == origins[j, 1, ell])
+                val += (origins[i, 0, ell] == origins[j, 0, ell]) + \
+                    (origins[i, 1, ell] == origins[j, 0, ell]) + \
+                    (origins[i, 0, ell] == origins[j, 1, ell]) + \
+                    (origins[i, 1, ell] == origins[j, 1, ell])
+            outgrm[i, j] += val
+                # outgrm[i, j] += (origins[i, 0, ell] == origins[j, 0, ell])
+                # outgrm[i, j] += (origins[i, 1, ell] == origins[j, 0, ell])
+                # outgrm[i, j] += (origins[i, 0, ell] == origins[j, 1, ell])
+                # outgrm[i, j] += (origins[i, 1, ell] == origins[j, 1, ell])
 
 
 class OriginTracer():
