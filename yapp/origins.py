@@ -120,7 +120,8 @@ class OriginTracer():
         transmissions in the pedigree.
         """
         logger.info("Computing linkage-based GRM")
-        N = len(phaser.data['samples'])
+        samples = list(phaser.data['samples'])
+        N = len(samples)
         Ltot = 0
         GRM = np.zeros((N, N), dtype=np.float)
         for reg in phaser.regions:
@@ -138,8 +139,8 @@ class OriginTracer():
             for i in range(N):
                 for j in range(i, N):
                     print(
-                        phaser.data.samples[i],
-                        phaser.data.samples[j],
+                        samples[i],
+                        samples[j],
                         GRM[i, j],
                         file=fout
                     )
