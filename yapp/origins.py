@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 
 @njit(parallel=True)
 def compute_grm(nindiv, nsnp, origins, outgrm):
+    # pylint: disable=not-an-iterable
     for i in range(nindiv):
-        for j in prange(i,nindiv):
+        for j in prange(i, nindiv):
             val = 0
             for ell in range(nsnp):
                 val += (origins[i, 0, ell] == origins[j, 0, ell]) + \
@@ -25,10 +26,10 @@ def compute_grm(nindiv, nsnp, origins, outgrm):
                     (origins[i, 0, ell] == origins[j, 1, ell]) + \
                     (origins[i, 1, ell] == origins[j, 1, ell])
             outgrm[i, j] += val
-                # outgrm[i, j] += (origins[i, 0, ell] == origins[j, 0, ell])
-                # outgrm[i, j] += (origins[i, 1, ell] == origins[j, 0, ell])
-                # outgrm[i, j] += (origins[i, 0, ell] == origins[j, 1, ell])
-                # outgrm[i, j] += (origins[i, 1, ell] == origins[j, 1, ell])
+            # outgrm[i, j] += (origins[i, 0, ell] == origins[j, 0, ell])
+            # outgrm[i, j] += (origins[i, 1, ell] == origins[j, 0, ell])
+            # outgrm[i, j] += (origins[i, 0, ell] == origins[j, 1, ell])
+            # outgrm[i, j] += (origins[i, 1, ell] == origins[j, 1, ell])
 
 
 class OriginTracer():
@@ -144,8 +145,8 @@ class OriginTracer():
                             GRM[i, j],
                             file=fout
                         )
-        for i in range(2,N):
-            for j in range(1,i):
+        for i in range(2, N):
+            for j in range(1, i):
                 GRM[i, j] = GRM[j, i]
         phaser.data['linkage/pedGRM'] = GRM
 
