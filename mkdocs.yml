@@ -1,0 +1,4 @@
+site_name: YAPP ~ Software tools to analyse genomic data in pedigrees
+theme: readthedocs
+nav:
+    - 'index.md'
