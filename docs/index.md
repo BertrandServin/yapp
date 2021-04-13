@@ -12,11 +12,28 @@ documentation below provides the relevant citations.
 ## Installation
 
 `yapp` has been tested to work on Linux and MacOSX with python
-versions >= 3.6.  It is suggested to install `yapp` within a
+versions >= 3.7.  It is suggested to install `yapp` within a
 [python virtual
 environment](https://docs.python.org/3/tutorial/venv.html).
+Briefly this is done with these commands:
 
-First, Install Numberjack from github:
+```bash
+python -m venv yappenv
+cd yappenv
+source bin/activate
+## make sure a recent version of pip is installed
+pip install -U pip
+```
+
+Then, install Numberjack from github. First checkout that you have installed the required dependencies:
+
+-    python-dev
+-    swig (3.X)
+-    libxml2-dev
+-    zlib1g-dev
+-    libgmp-dev
+
+Then install it using the following commands:
 
 ```bash
 git clone git@github.com:eomahony/Numberjack.git
@@ -24,7 +41,7 @@ cd Numberjack
 pip install .
 ```
 
-Then, install yapp.
+Finally, you can install yapp.
 
 Either the current release (note that the python package name is yappgen):
            
@@ -40,7 +57,7 @@ cd yapp
 pip install .
 ```
 
-To run some of yapp utilities on a computer cluster you can additionally install `ray`
+To run some of yapp utilities on a computer cluster you can additionally install `ray` (`pip install ray`)
 
 ## Usage
 
@@ -55,9 +72,12 @@ index obtained with [`tabix`](http://www.htslib.org/doc/tabix.html), and a [FAM
 file](https://www.cog-genomics.org/plink/1.9/formats#fam) with family
 information. `yapp` writes logs of all commands to a common log file ending in `_yapp.log`. 
 This way all steps of an analysis will be logged in the same place (the file is not overwritten).
-
 `yapp` commands try to use multiple processors when required. By default they will use all that are 
 available. To control this number use the `-c` option. 
+
+*Workflow of yapp commands*
+
+![Yapp workflkow](img/yapp-flowchart.png)
 
 Available commands are:
 
@@ -122,6 +142,8 @@ meiosis (parent -> offspring) and each chromosome the interval within
 which crossing overs can be detected.
 
 ### `origins`
+
+*only available for version > 0.1*
 
 The `origins` command is used to trace down transmission of ancestral
 alleles in the pedigree. Any chromosome of unknown ancestral origin is
