@@ -55,8 +55,12 @@ def recmap(phys_pos, recrate=1):
 
 def main(args):
     prfx = args.prfx
-    # rho = args.rho
     err = args.err
+    try:
+        assert((args.minsp > 0) and (args.minsp < 1))
+    except AssertionError:
+        logger.error(f"Unvalid argument passed for parameter minsp ({args.minsp})")
+        raise
     vcf_file = f"{prfx}.vcf.gz"
     fam_file = f"{prfx}.fam"
 
@@ -114,7 +118,7 @@ def main(args):
                         gamete.Gamete(chrom_pair.maternal_gamete.haplotype)
                     ]
                     for i, geno in enumerate(g):
-                        if si_sperm[i][1] > 0.999:
+                        if si_sperm[i][1] > args.minsp:
                             origin = si_sperm[i][0]
                             if geno == -1:
                                 if new_gametes[origin].haplotype[i] < 0:

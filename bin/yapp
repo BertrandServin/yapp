@@ -134,8 +134,14 @@ def yapp_parser():
         '--rho',
         type=float,
         help='Set recombination rate to R cM/Mb',
-        metavar='C',
+        metavar='R',
         default=1
+    )
+    parser_sperm.add_argument(
+        '--minsp',
+        type=float,
+        help='Set minimum segregation probability to call genotypes',
+        default=0.99
     )
     parser_sperm.set_defaults(func=sperm.main)
 
