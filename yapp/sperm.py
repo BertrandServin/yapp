@@ -130,9 +130,9 @@ def main(args):
                 for locus in inconsistencies[1]:
                     new_gametes[1].haplotype[locus] = -1
                 logger.debug(
-                    f'h.pat: {len(inconsitencies[0])} loci with mismatches')
+                    f'h.pat: {len(inconsistencies[0])} loci with mismatches')
                 logger.debug(
-                    f'h.mat: {len(inconsitencies[1])} loci with mismatches')
+                    f'h.mat: {len(inconsistencies[1])} loci with mismatches')
                 chrom_pair.update_paternal_gamete(new_gametes[0])
                 chrom_pair.update_maternal_gamete(new_gametes[1])
 
