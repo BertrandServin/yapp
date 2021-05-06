@@ -94,8 +94,22 @@ def yapp_parser():
         type=str,
         help='prefix for input / output files'
     )
+    parser_recomb.add_argument(
+        '--rho',
+        type=float,
+        help='Use average recombination rate of R cM/Mb',
+        metavar='R',
+        default=1
+    )
+    parser_recomb.add_argument(
+        '--minsp',
+        type=float,
+        help='Set minimum segregation probability to call crossover boundary',
+        default=0.99
+    )
     parser_recomb.set_defaults(func=recombination.main)
 
+    # Origins
     parser_origins = subparsers.add_parser(
         'origins',
         help='Trace down ancestral origins from phased data in pedigree'
