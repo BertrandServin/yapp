@@ -43,8 +43,8 @@ def wcsp_phase(args):
 
 def run_segregation_task(args):
     """parallele segregation function """
-    name, chpair_parent, gam, recmap = args
-    return name, chpair_parent.get_segregation_indicators(gam, recmap)
+    name, chpair_parent, gam, recmap, err = args
+    return name, chpair_parent.get_segregation_indicators(gam, recmap, err)
 
 
 class ChromosomePair():
@@ -360,7 +360,7 @@ class Phaser():
         self.timeout_delay = 30
 
     @classmethod
-    def from_prefix(cls, prfx, region=None, focalID=None, err=1e-3):
+    def from_prefix(cls, prfx, region=None, focalID=None, err=1e-3, rho=1):
         """
         Create a phaser object from files with the same prefix :
         prfx.vcf.gz and prfx.fam
@@ -396,7 +396,7 @@ class Phaser():
     def families(self):
         return self.pedigree.families
 
-    def recmap(self, recrate=1):
+    def recmap(self):
         """Computes a recombination map assuming a rate of recrate (in cM/Mb)
         along regions"""
         res = {}
@@ -404,7 +404,7 @@ class Phaser():
             pos = self.data['variants'][reg]['POS']
             distances = np.array(pos[1:]-pos[:-1])
             distances[distances < 100] = 100
-            res[reg] = distances * recrate * 1e-8
+            res[reg] = distances * self.rho * 1e-8
         return res
 
     def write_phased_vcf(self):
@@ -541,12 +541,12 @@ class Phaser():
             ph_g['seg_probs'] = seg_probs
         print(self.data.tree())
 
-    def compute_segregations(self, region, phases=None, recrate=1):
+    def compute_segregations(self, region, phases=None):
         """Compute segregations for all individuals in the pedigree
 
         """
         logger.info(f"Computing segregations on region {region}")
-        recmaps = self.recmap(recrate)
+        recmaps = self.recmap()
         if phases is None:
             chrom_pairs = self.phase_samples_from_genotypes(region)
         else:
@@ -561,13 +561,15 @@ class Phaser():
                     (node.indiv,
                      chrom_pairs[node.father.indiv],
                      chpair.paternal_gamete,
-                     recmap))
+                     recmap,
+                     self.err))
             if node.mother:
                 mat_seg_tasks.append(
                     (node.indiv,
                      chrom_pairs[node.mother.indiv],
                      chpair.maternal_gamete,
-                     recmap))
+                     recmap,
+                     self.err))
         with Pool(cpu_count()) as workers:
             for indiv, segind in workers.imap_unordered(run_segregation_task,
                                                         pat_seg_tasks):
@@ -582,8 +584,8 @@ class Phaser():
     def phase_samples_from_segregations(self, region,
                                         ncpu=1,
                                         phases=None,
-                                        ignore_child=defaultdict(lambda: False), # noqa
-                                        recrate=1):
+                                        ignore_child=defaultdict(lambda: False) # noqa
+                                        ):
         """Infer segregation indicators in the pedigree.
 
         Arguments
@@ -595,7 +597,7 @@ class Phaser():
         update phases
         """
         logger.info("Phasing samples from segregations")
-        recmaps = self.recmap(recrate)
+        recmaps = self.recmap()
         if phases is None:
             chrom_pairs, ignore_child = self.phase_samples_from_genotypes(region)
         else:
@@ -616,14 +618,16 @@ class Phaser():
                     (node.indiv,
                      chrom_pairs[node.father.indiv],
                      chpair.paternal_gamete,
-                     recmap)
+                     recmap,
+                     self.err)
                 )
             if node.mother:
                 mat_seg_tasks.append(
                     (node.indiv,
                      chrom_pairs[node.mother.indiv],
                      chpair.maternal_gamete,
-                     recmap)
+                     recmap,
+                     self.err)
                 )
 
         nmm = 0
@@ -716,7 +720,7 @@ class Phaser():
                         logger.debug(
                             f"Inconsistency in phase data for individual"
                             f"{indiv} on region {region}. Will try to fix it.")
-                        si = p.get_segregation_indicators(new_gam, recmap)
+                        si = p.get_segregation_indicators(new_gam, recmap, err=self.err)
                         si_gam = gamete.Gamete.from_offspring_segregation(
                             p.g, new_gam, [x[0] for x in si])
                         try:
@@ -756,7 +760,7 @@ class Phaser():
         return chrom_pairs
 
     def phase_samples_from_genotypes(self, region,
-                                     ncpu=1, phases=None, recrate=1):
+                                     ncpu=1, phases=None):
         """Reconstruct paternal and maternal gametes in the pedigree
         based on observed genotypes.
         Returns
@@ -767,7 +771,7 @@ class Phaser():
         logger.info("Phasing samples from genotypes")
         logger.info("\t1. Loading Genotypes")
         genotypes = self.get_mendelian_genotypes(region)
-        recmaps = self.recmap(recrate)
+        recmaps = self.recmap()
         recmap = recmaps[region]
         recpos = np.cumsum([0]+list(recmap))*100
         if phases is None:
@@ -840,7 +844,7 @@ class Phaser():
                                  f"for individual {indiv} on region {region}. "
                                  f"I Will try to fix it. ")
                     # correct switch errors
-                    si = p.get_segregation_indicators(new_gam, recmap)
+                    si = p.get_segregation_indicators(new_gam, recmap,err=self.err)
                     si_gam = gamete.Gamete.from_offspring_segregation(
                         p.g, new_gam, [x[0] for x in si])
                     try:
@@ -876,7 +880,7 @@ def main(args):
 
     logger.info("Loading Data")
     phaser = Phaser.from_prefix(
-        prfx, region=args.reg, focalID=args.focalID, err=args.err)
+        prfx, region=args.reg, focalID=args.focalID, err=args.err, rho=args.rho)
     phaser.run(ncpu=args.c)
     logger.info(
         f"Exporting results to : "
