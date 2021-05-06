@@ -88,7 +88,7 @@ class ChromosomePair():
     @property
     def phased(self):
         """Phased markers"""
-        return (self.paternal_gamete.haplotype > 0) | (self.maternal_gamete.haplotype > 0) # noqa
+        return (self.paternal_gamete.haplotype > -1) & (self.maternal_gamete.haplotype > -1) # noqa
 
     @property
     def resolved(self):

@@ -256,9 +256,8 @@ class RecombAnalyser():
                             par.add_offspring_CO(
                                 node.indiv, chrom, pos[x], pos[y])
                         # coverage
-                        par_resolved = (genotypes[idx_pat] == 1) & ( (gametes[idx_pat][0] > 0) | (gametes[idx_pat][1] > 0)) # noqa
-                        child_phased = (gametes[idx][0] > 0) | (
-                            gametes[idx][1] > 0)
+                        par_resolved = (genotypes[idx_pat] == 1) & ( (gametes[idx_pat][0] > -1) & (gametes[idx_pat][1] > -1)) # noqa
+                        child_phased = (gametes[idx][0] > -1)
                         combin_info = par_resolved & child_phased
                         infomk = combin_info.nonzero()[0]
                         if len(infomk) > 0:
@@ -283,8 +282,8 @@ class RecombAnalyser():
                             par.add_offspring_CO(
                                 node.indiv, chrom, pos[x], pos[y])
                         # coverage
-                        par_resolved = (genotypes[idx_mat] == 1) & ((gametes[idx_mat][0] > 0) | (gametes[idx_mat][1] > 0)) # noqa
-                        child_phased = (gametes[idx][0] > 0) | (gametes[idx][1] > 0) # noqa
+                        par_resolved = (genotypes[idx_mat] == 1) & ((gametes[idx_mat][0] > -1) & (gametes[idx_mat][1] > -1)) # noqa
+                        child_phased = (gametes[idx][1] > -1) # noqa
                         combin_info = par_resolved & child_phased
                         infomk = combin_info.nonzero()[0]
                         if len(infomk) > 0:
