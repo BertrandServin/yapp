@@ -147,10 +147,10 @@ class RecombAnalyser():
         """
         return 1e8 * np.log(alpha) / (recrate * nmeio)
 
-    def run(self):
+    def run(self, recrate, call):
         """ Run the recombination analysis """
         logger.info("Finding recombinations")
-        self.identify_crossovers()
+        self.identify_crossovers(recrate=recrate, call=call)
 
     @staticmethod
     def get_chromosome_pair(genotype, gametes, segregations, seg_probs):
@@ -212,7 +212,7 @@ class RecombAnalyser():
                     f"size:{self.size_covered[sex][chrom]} Mb"
                 )
 
-    def identify_crossovers(self, recrate=1):
+    def identify_crossovers(self, recrate=1, call=0.99):
         logger.info("Gathering crossovers")
         smpidx = {}
         for i, name in enumerate(self.phaser.data['samples']):
@@ -251,7 +251,7 @@ class RecombAnalyser():
                         logger.debug("Finding paternal crossovers")
                         si_pat = list(
                             zip(segregations[idx, 0, ], segprobs[idx, 0, ]))
-                        cos = self.get_crossovers(si_pat,call=0.99)
+                        cos = self.get_crossovers(si_pat,call=call)
                         for x, y in cos:
                             par.add_offspring_CO(
                                 node.indiv, chrom, pos[x], pos[y])
@@ -543,5 +543,5 @@ def main(args):
 
     phaser_db = prfx+'.db'
     analyzer = RecombAnalyser(phaser_db)
-    analyzer.run()
+    analyzer.run(recrate=args.rho, call=args.minsp)
     analyzer.write_results(prfx)
