@@ -27,7 +27,7 @@ class RecombAnalyser():
         self.parents = {}
         for node in self.phaser.pedigree:
             # need at least 2 offspring to detect recomb
-            if len(node.children) > 1:
+            if len(node.children) > 0:
                 self.add_parent(node)
         # size_covered[sex][chrom]
         self.size_covered = defaultdict(lambda: defaultdict(lambda: 0.0))
@@ -95,6 +95,7 @@ class RecombAnalyser():
         phase_prob = np.array([x[1] for x in si])
         co_loc = np.asarray((best_guess[1:] - best_guess[:-1]) != 0).nonzero()[0]  # noqa
         nco = len(co_loc)
+        logger.debug("Found {nco} candidate crossovers")
         res = []
         if nco == 0:
             return res
@@ -243,12 +244,14 @@ class RecombAnalyser():
                         par = self.parents[node.father.indiv]
                         idx_pat = smpidx[node.father.indiv]
                     except KeyError:
+                        logger.debug(f"Cannot find {node.father.indiv}")
                         pass
                     else:
                         # crossovers
+                        logger.debug("Finding paternal crossovers")
                         si_pat = list(
                             zip(segregations[idx, 0, ], segprobs[idx, 0, ]))
-                        cos = self.get_crossovers(si_pat)
+                        cos = self.get_crossovers(si_pat,call=0.99)
                         for x, y in cos:
                             par.add_offspring_CO(
                                 node.indiv, chrom, pos[x], pos[y])

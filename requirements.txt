@@ -4,7 +4,7 @@ click==7.1.2
 coloredlogs==15.0
 cyvcf2==0.30.4
 fasteners==0.16
-fastphase==1.2
+fastphase>=1.2
 h5py==3.2.1
 humanfriendly==9.1
 numba==0.53.1
