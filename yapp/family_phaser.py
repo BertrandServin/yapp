@@ -844,7 +844,7 @@ class Phaser():
                                  f"for individual {indiv} on region {region}. "
                                  f"I Will try to fix it. ")
                     # correct switch errors
-                    si = p.get_segregation_indicators(new_gam, recmap,err=self.err)
+                    si = p.get_segregation_indicators(new_gam, recmap, err=self.err)
                     si_gam = gamete.Gamete.from_offspring_segregation(
                         p.g, new_gam, [x[0] for x in si])
                     try:

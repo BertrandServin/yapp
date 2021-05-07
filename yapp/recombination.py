@@ -251,7 +251,7 @@ class RecombAnalyser():
                         logger.debug("Finding paternal crossovers")
                         si_pat = list(
                             zip(segregations[idx, 0, ], segprobs[idx, 0, ]))
-                        cos = self.get_crossovers(si_pat,call=call)
+                        cos = self.get_crossovers(si_pat, call=call)
                         for x, y in cos:
                             par.add_offspring_CO(
                                 node.indiv, chrom, pos[x], pos[y])
