@@ -65,38 +65,7 @@ def relik_Gdiag(h, Y, X, diagG):
     CB = Xt.Vi.Y
 
     L = P(Y|X,h) = \int P(Y|X,h,ve)P(ve) with P(ve) \propto 1/ve
-    logL = cste - 0.5 ( logdet(C) + N log(Yt.Vi.Y - Bt.C.B) )
-    """
-    N = Y.shape[0]
-    Vi = np.diag(1 / (1+ diagG * h/(1-h)))
-    C = X.T @ Vi @ X
-    B = np.linalg.solve(C,X.T @ Vi @ Y)
-    yPy = Y.T@Vi@Y - B.T@C@B
-    _,ldetC = np.linalg.slogdet(C)
-    ldetVi = np.sum(np.log(1 / (1+ diagG * h/(1-h))))
-    return -0.5 * (ldetC - ldetVi + N * np.log(yPy))
-
-def relik_Gdiag_correct(h, Y, X, diagG):
-    """Computes the restricted likelihood of the animal model when G
-    is diagonal
-    
-    Y = XB + w + e
-
-    w ~ N(0, diagG ve.h/(1-h))
-    e ~ N(0, I ve)
-    
-    This is obtained from the full matrix model by diagonalization of
-    G through eigen decomposition and projection of the model on the
-    PCs. 
-
-    V(Y) is diagonal (I + h/(1-h) diagG) and easy to
-    invert. So the restricted likelihood can be obtained as :
-
-    C = Xt.Vi.X
-    CB = Xt.Vi.Y
-
-    L = P(Y|X,h) = \int P(Y|X,h,ve)P(ve) with P(ve) \propto 1/ve
-    logL = cste - 0.5 ( logdet(C) + N log(Yt.Vi.Y - Bt.C.B) )
+    logL = cste - 0.5 ( logdet(C) + (N-P) log(Yt.Vi.Y - Bt.C.B) )
     """
     N = Y.shape[0]
     P = X.shape[1]
@@ -170,34 +139,98 @@ def relik_Gdiag_Z(p, h, Y, X, Z, diagG):
           [ ZtRiX    , ZtRiZ + Ki]]
 
     C[B:u]t = [X:Z]t.Ri.Y
-
-    TODO : figure out the likelihood
     """
-    pass
+    N = Y.shape[0]
+    P = X.shape[1]
+    K = Z.shape[1]
+    Vi = np.diag(1 / (1+diagG*(1-p)*h/(1-h)))
+    W = np.hstack([X,Z])
+    C = W.T @ Vi @ W
+    C[P:,P:] += np.eye(K)*(1-h)/(p*h)
+    B = np.linalg.solve(C,W.T @ Vi @ Y)
+    yPy = Y.T@Vi@Y - B.T@C@B
+    _,ldetC = np.linalg.slogdet(C)
+    ldetVi = np.sum(np.log(1 / (1+diagG*(1-p)*h/(1-h))))
+    return -0.5 * (ldetC - ldetVi + (N-P) * np.log(yPy))
+
 
 if __name__=='__main__':
     '''Simulate stuff to test funcs'''
 
     rng = np.random.default_rng()
-    Nfam = 200
-    Nind = 10
+    Nfam = 30
+    Nind = 30
     N = Nfam * Nind
-    nsim = 100
+    K=2*Nfam
+    nsim = 1
     G = np.kron(np.eye(Nfam),np.ones((Nind,Nind))*0.25)
     np.fill_diagonal(G,1)
     dG,U = np.linalg.eigh(G)
     with open('../test/h.txt','w') as fout:
         print('h hreml success ll se',file=fout)
         for isim in range(nsim):
-            h = rng.random()
-            Zu = rng.multivariate_normal(mean = np.zeros(N),cov=G*h/(1-h))
-            X = np.block([[np.ones(N)],[np.random.randint(0,2,N)]]).T
-            beta = np.array([2,0.01])
-            Y = X@beta + Zu + np.random.randn(N)
-            mylik = partial(relik_Gdiag_correct, Y=U.T@Y, X=U.T@X, diagG=dG)
-            optlik = lambda x: -mylik(x)
-            hmax = minimize(optlik,[0.4],bounds=[(1e-3,1-1e-3)], options={"disp":True})
-            print(np.round(h,3), np.round(hmax.x[0],3), hmax.success, -hmax.fun, np.sqrt(hmax.hess_inv.todense()[0,0]),file=fout)
+            # h = rng.random()
+            # p = rng.random()
+            h = 0.2
+            p = 0.5
+            print(f"Simulation {isim+1} with h={h} and p={p}")
+            ## polygenic component
+            w = rng.multivariate_normal(mean = np.zeros(N),cov=G*(1-p)*h/(1-h))
+            ## Fixed Effects = intercept
+            # beta = np.array([2,0.01])
+            # X = np.block([[np.ones(N)],[np.random.randint(0,2,N)]]).T
+            X = np.block([[np.ones(N)]]).reshape(N,1)
+            beta = np.array([0])
+            ## QTL Effect
+            Z = np.zeros((N,2*Nfam))
+            irow = np.arange(N)
+            fam, row_within_fam = divmod(irow,Nind)
+            icol = 2*fam+(row_within_fam//(Nind//2))
+            Z[irow,icol]=1
+            u = rng.normal(scale = np.sqrt(p*h/(1-h)), size=Z.shape[1])
+            Zu = Z@u
+            ## Phenotypes
+            Y = X@beta + Zu + w + np.random.randn(N)
+            ## Null Model
+            mylik_null = partial(relik_Gdiag, Y=U.T@Y, X=U.T@X, diagG=dG)
+            optlik_null = lambda x: -mylik_null(x)
+            hmax_null = minimize(optlik_null,[0.4],bounds=[(1e-3,1-1e-3)], options={"disp":False})
+            print(f"*****   H: {hmax_null.x[0]} se {np.sqrt(hmax_null.hess_inv.todense()[0,0])}")
+            ## QTL model
+            mylik_qtl_h = partial(relik_Gdiag_Z, h = h, Y=U.T@Y, X=U.T@X, Z=U.T@Z, diagG=dG)
+            optlik_qtl_h = lambda x: -mylik_qtl_h(x)
+            pp = np.linspace(0.01,0.99)
+            print("p -llik")
+            print('-------')
+            for ip in pp:
+                print(f"{np.round(ip,2)} {np.round(optlik_qtl_h(ip),2)}")
+            mylik_qtl_p = partial(relik_Gdiag_Z, Y=U.T@Y, X=U.T@X, Z=U.T@Z, diagG=dG)
+            optlik_qtl_p = lambda x: -mylik_qtl_p(p=p,h=x)
+            hh = np.linspace(0.01,0.99)
+            print("h -llik")
+            print('-------')
+            for ih in hh:
+                print(f"{np.round(ih,2)} {np.round(optlik_qtl_p(ih),2)}")
+            # hmax_qtl = minimize(optlik_qtl,[0.5],
+            #                     bounds=[(1e-3,1-1e-3)],
+            #                         options={"disp":False})
+            # print(f"***** RHO: {hmax_qtl.x[0]} se {np.sqrt(hmax_qtl.hess_inv.todense()[0,0])}")
+            ##print(f"***** LRT: {hmax_null.fun - hmax_qtl.fun}")
+            # mylik_qtl_2 = partial(relik_Gdiag_Z,  Y=U.T@Y, X=U.T@X, Z=U.T@Z, diagG=dG)
+            # optlik_qtl_2 = lambda x: -mylik_qtl_2(x[0],x[1])
+            # hmax_qtl_2 = minimize(optlik_qtl_2,[hmax_qtl_1.x[0],hmax_null.x[0]],
+            #                       bounds=[(1e-3,1-1e-3),(1e-3,1-1e-3)],
+            #                         options={"disp":False})
+            
+            # print(f"*****   H: {hmax_qtl_2.x[1]} se {np.sqrt(hmax_qtl_2.hess_inv.todense()[1,1])}")
+            # print(f"***** RHO: {hmax_qtl_2.x[0]} se {np.sqrt(hmax_qtl_2.hess_inv.todense()[0,0])}")
+            #
+            # print(np.round(h,3),
+            #       np.round(hmax.x[0],3),
+            #       hmax.success,
+            #       -hmax.fun,
+            #         np.sqrt(hmax.hess_inv.todense()[0,0]),
+            #         file=fout)
 
     # h = 0.5
     # genetic = True
