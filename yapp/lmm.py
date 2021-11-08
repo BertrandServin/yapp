@@ -22,6 +22,7 @@ from functools import partial
 import numpy as np
 from scipy.optimize import minimize
 from scipy.special import expit
+from scipy.linalg import block_diag
 
 def relik_animal_model(h, Y, X, Gi):
     """
@@ -158,12 +159,19 @@ if __name__=='__main__':
     '''Simulate stuff to test funcs'''
 
     rng = np.random.default_rng()
-    Nfam = 30
-    Nind = 30
+    Nfam = 10
+    Nind = 100
     N = Nfam * Nind
     K=2*Nfam
     nsim = 1
-    G = np.kron(np.eye(Nfam),np.ones((Nind,Nind))*0.25)
+    ## pedigree kinship -> does not work for testing linkage effects
+    ##G = np.kron(np.eye(Nfam),np.ones((Nind,Nind))*0.25)
+    fG = []
+    ## create pedGRM-like coefficients with gametic variance
+    for ifam in range(Nfam):
+        a = rng.normal(loc=0.25,scale=0.05,size=(Nind,Nind))
+        fG.append(np.tril(a)+np.tril(a,k=-1).T)
+    G=block_diag(*fG)
     np.fill_diagonal(G,1)
     dG,U = np.linalg.eigh(G)
     with open('../test/h.txt','w') as fout:
@@ -172,7 +180,7 @@ if __name__=='__main__':
             # h = rng.random()
             # p = rng.random()
             h = 0.2
-            p = 0.5
+            p = 0.1
             print(f"Simulation {isim+1} with h={h} and p={p}")
             ## polygenic component
             w = rng.multivariate_normal(mean = np.zeros(N),cov=G*(1-p)*h/(1-h))
@@ -185,8 +193,10 @@ if __name__=='__main__':
             Z = np.zeros((N,2*Nfam))
             irow = np.arange(N)
             fam, row_within_fam = divmod(irow,Nind)
-            icol = 2*fam+(row_within_fam//(Nind//2))
+            div = np.sum(divmod(Nind,2))
+            icol = 2*fam+(row_within_fam//div)
             Z[irow,icol]=1
+            ##Z = rng.binomial(1,0.5, (N,2*Nfam))
             u = rng.normal(scale = np.sqrt(p*h/(1-h)), size=Z.shape[1])
             Zu = Z@u
             ## Phenotypes
@@ -196,34 +206,22 @@ if __name__=='__main__':
             optlik_null = lambda x: -mylik_null(x)
             hmax_null = minimize(optlik_null,[0.4],bounds=[(1e-3,1-1e-3)], options={"disp":False})
             print(f"*****   H: {hmax_null.x[0]} se {np.sqrt(hmax_null.hess_inv.todense()[0,0])}")
-            ## QTL model
-            mylik_qtl_h = partial(relik_Gdiag_Z, h = h, Y=U.T@Y, X=U.T@X, Z=U.T@Z, diagG=dG)
-            optlik_qtl_h = lambda x: -mylik_qtl_h(x)
-            pp = np.linspace(0.01,0.99)
-            print("p -llik")
-            print('-------')
-            for ip in pp:
-                print(f"{np.round(ip,2)} {np.round(optlik_qtl_h(ip),2)}")
-            mylik_qtl_p = partial(relik_Gdiag_Z, Y=U.T@Y, X=U.T@X, Z=U.T@Z, diagG=dG)
-            optlik_qtl_p = lambda x: -mylik_qtl_p(p=p,h=x)
-            hh = np.linspace(0.01,0.99)
-            print("h -llik")
-            print('-------')
-            for ih in hh:
-                print(f"{np.round(ih,2)} {np.round(optlik_qtl_p(ih),2)}")
-            # hmax_qtl = minimize(optlik_qtl,[0.5],
-            #                     bounds=[(1e-3,1-1e-3)],
-            #                         options={"disp":False})
-            # print(f"***** RHO: {hmax_qtl.x[0]} se {np.sqrt(hmax_qtl.hess_inv.todense()[0,0])}")
-            ##print(f"***** LRT: {hmax_null.fun - hmax_qtl.fun}")
-            # mylik_qtl_2 = partial(relik_Gdiag_Z,  Y=U.T@Y, X=U.T@X, Z=U.T@Z, diagG=dG)
-            # optlik_qtl_2 = lambda x: -mylik_qtl_2(x[0],x[1])
-            # hmax_qtl_2 = minimize(optlik_qtl_2,[hmax_qtl_1.x[0],hmax_null.x[0]],
-            #                       bounds=[(1e-3,1-1e-3),(1e-3,1-1e-3)],
-            #                         options={"disp":False})
-            
-            # print(f"*****   H: {hmax_qtl_2.x[1]} se {np.sqrt(hmax_qtl_2.hess_inv.todense()[1,1])}")
-            # print(f"***** RHO: {hmax_qtl_2.x[0]} se {np.sqrt(hmax_qtl_2.hess_inv.todense()[0,0])}")
+            ## QTL model fixed effects
+            ##W = np.hstack([X,Z])
+            mylik_qtl = partial(relik_Gdiag, Y=U.T@Y, X=U.T@Z, diagG=dG)
+            optlik_qtl = lambda x: -mylik_qtl(x)
+            hmax_qtl = minimize(optlik_qtl,[0.4],bounds=[(1e-3,1-1e-3)], options={"disp":False})
+            print(f"*****   H: {hmax_qtl.x[0]} se {np.sqrt(hmax_qtl.hess_inv.todense()[0,0])}")
+            ## QTL model random effects
+            mylik_qtl_2 = partial(relik_Gdiag_Z,  Y=U.T@Y, X=U.T@X, Z=U.T@Z, diagG=dG)
+            optlik_qtl_2 = lambda x: -mylik_qtl_2(x[0],x[1])
+            hmax_qtl_2 = minimize(optlik_qtl_2,[0.1,0.1],
+                                  bounds=[(1e-3,1-1e-3),(1e-3,1-1e-3)],
+                                    options={"disp":False})
+            H = hmax_qtl_2.hess_inv.todense()
+            print(f"Hessian : {H}")
+            print(f"*****  H2: {hmax_qtl_2.x[1]} se {H[1,1]}")
+            print(f"***** RHO: {hmax_qtl_2.x[0]} se {H[0,0]}")
             #
             # print(np.round(h,3),
             #       np.round(hmax.x[0],3),
