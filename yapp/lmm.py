@@ -23,6 +23,8 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.special import expit
 from scipy.linalg import block_diag
+from scipy.stats import f as fdist
+from scipy.stats import chi2
 
 def relik_animal_model(h, Y, X, Gi):
     """
@@ -77,6 +79,17 @@ def relik_Gdiag(h, Y, X, diagG):
     _,ldetC = np.linalg.slogdet(C)
     ldetVi = np.sum(np.log(1 / (1+ diagG * h/(1-h))))
     return -0.5 * (ldetC - ldetVi + (N-P) * np.log(yPy))
+
+def Wald_Gdiag(h, Y, X, diagG):
+    """ Computes the Wald statistic of fixed effects of the animal 
+    model when G is diagonal
+    """
+    N = Y.shape[0]
+    P = X.shape[1]
+    Vi = np.diag(1 / (1+ diagG * h/(1-h)))
+    C = X.T @ Vi @ X
+    B = np.linalg.solve(C,X.T @ Vi @ Y)
+    return (B.T@C@B, P-1, N-P)
 
 def relik_lowrank(h, Y, X, eigVal, eigVec, valmin=1):
     """Computes the restricted likelihood of the animal model when G
@@ -172,6 +185,7 @@ if __name__=='__main__':
         a = rng.normal(loc=0.25,scale=0.05,size=(Nind,Nind))
         fG.append(np.tril(a)+np.tril(a,k=-1).T)
     G=block_diag(*fG)
+    print(np.round(G,2))
     np.fill_diagonal(G,1)
     dG,U = np.linalg.eigh(G)
     with open('../test/h.txt','w') as fout:
@@ -179,8 +193,8 @@ if __name__=='__main__':
         for isim in range(nsim):
             # h = rng.random()
             # p = rng.random()
-            h = 0.2
-            p = 0.1
+            h = 0.5
+            p = 0.00001
             print(f"Simulation {isim+1} with h={h} and p={p}")
             ## polygenic component
             w = rng.multivariate_normal(mean = np.zeros(N),cov=G*(1-p)*h/(1-h))
@@ -200,20 +214,29 @@ if __name__=='__main__':
             u = rng.normal(scale = np.sqrt(p*h/(1-h)), size=Z.shape[1])
             Zu = Z@u
             ## Phenotypes
-            Y = X@beta + Zu + w + np.random.randn(N)
+            Ynull = X@beta + w + np.random.randn(N)
+            Y = Ynull + Zu
+            ##Y = X@beta + Zu + w + np.random.randn(N)
             ## Null Model
             mylik_null = partial(relik_Gdiag, Y=U.T@Y, X=U.T@X, diagG=dG)
             optlik_null = lambda x: -mylik_null(x)
-            hmax_null = minimize(optlik_null,[0.4],bounds=[(1e-3,1-1e-3)], options={"disp":False})
+            hmax_null = minimize(optlik_null,[0.4],
+                                 bounds=[(1e-3,1-1e-3)],
+                                 options={"disp":False})
             print(f"*****   H: {hmax_null.x[0]} se {np.sqrt(hmax_null.hess_inv.todense()[0,0])}")
             ## QTL model fixed effects
             ##W = np.hstack([X,Z])
-            mylik_qtl = partial(relik_Gdiag, Y=U.T@Y, X=U.T@Z, diagG=dG)
+            mylik_qtl = partial(relik_Gdiag, Y=U.T@Y-U.T@X@beta, X=U.T@Z, diagG=dG)
             optlik_qtl = lambda x: -mylik_qtl(x)
-            hmax_qtl = minimize(optlik_qtl,[0.4],bounds=[(1e-3,1-1e-3)], options={"disp":False})
+            hmax_qtl = minimize(optlik_qtl,[0.4],
+                                bounds=[(1e-3,1-1e-3)],
+                                options={"disp":False})
             print(f"*****   H: {hmax_qtl.x[0]} se {np.sqrt(hmax_qtl.hess_inv.todense()[0,0])}")
+            wald = Wald_Gdiag(hmax_qtl.x[0], Y=U.T@Y, X=U.T@Z, diagG=dG)
+            print(f"Wald statistic : {wald}, p = {fdist.sf(wald[0]/wald[1],wald[1],wald[2])} ")
+            continue
             ## QTL model random effects
-            mylik_qtl_2 = partial(relik_Gdiag_Z,  Y=U.T@Y, X=U.T@X, Z=U.T@Z, diagG=dG)
+            mylik_qtl_2 = partial(relik_Gdiag_Z,  Y=U.T@Y-U.T@X@beta, X=U.T@X, Z=U.T@Z, diagG=dG)
             optlik_qtl_2 = lambda x: -mylik_qtl_2(x[0],x[1])
             hmax_qtl_2 = minimize(optlik_qtl_2,[0.1,0.1],
                                   bounds=[(1e-3,1-1e-3),(1e-3,1-1e-3)],
