@@ -1,4 +1,4 @@
-''' Phasing Half-Sib families using the WCSP approach of Favier(2011)
+""" Phasing Half-Sib families using the WCSP approach of Favier(2011)
 
 Test data corresponds to phase information:
 
@@ -14,20 +14,22 @@ T3: (0,4),(4,6)
 
 Genetic distance is assumed to be 0.1 cM between each marker pair
 
-'''
+"""
 # pylint: disable=C0103
 from collections import defaultdict
 import numpy as np
 import Numberjack as nj  # pylint disable=import-error
 
-test_phase = {'T1': [1, -1, -1, 0, 1, -1, 1],
-              'T2': [-1, -1, -1, 0, 1, -1, 0],
-              'T3': [0, -1, -1, -1, 0, -1, 0],
-              'T4': [-1, -1, -1, -1, -1, -1, -1]}
+test_phase = {
+    "T1": [1, -1, -1, 0, 1, -1, 1],
+    "T2": [-1, -1, -1, 0, 1, -1, 0],
+    "T3": [0, -1, -1, -1, 0, -1, 0],
+    "T4": [-1, -1, -1, -1, -1, -1, -1],
+}
 
 
-class PhaseData():
-    '''
+class PhaseData:
+    """
     Class to format phase information data into WCSP variables
 
     Parameters:
@@ -48,7 +50,7 @@ class PhaseData():
      -----
      -- genetic map
 
-    '''
+    """
 
     def __init__(self, rawphase, mkpos=None):
         self.rawphase = rawphase
@@ -81,7 +83,7 @@ class PhaseData():
                 except KeyError:
                     self.info_pairs[p] = [0, 0]
                     Nvec = self.info_pairs[p]
-                Nvec[1-npair] += 1
+                Nvec[1 - npair] += 1
         # informative markers are all mks seen in pairs
         info_mk = defaultdict(int)
         for k in self.info_pairs:
@@ -93,21 +95,21 @@ class PhaseData():
         """Returns recombination rate between marker i and j
         from their positions (in cM).
         """
-        dtot = abs(self.mkpos[i]-self.mkpos[j])
-        return 0.5*(1-np.exp(-dtot/50))
+        dtot = abs(self.mkpos[i] - self.mkpos[j])
+        return 0.5 * (1 - np.exp(-dtot / 50))
 
     @staticmethod
     def recrate(i, j, d=0.01):
-        '''
+        """
         returns rec. rate between marker indices i and j
         assuming each adj. markers are separeted by d (default 0.01) cM
-        '''
-        dtot = abs(i-j)*d
-        return 0.5*(1-np.exp(-dtot/50))
+        """
+        dtot = abs(i - j) * d
+        return 0.5 * (1 - np.exp(-dtot / 50))
 
 
-class PhaseSolver():
-    '''
+class PhaseSolver:
+    """
     A class to Solve the phase of a parent.
 
     Parameters:
@@ -117,7 +119,7 @@ class PhaseSolver():
     -- mk_pairs : dict of pairs of markers (see PhaseData class)
     -- recmap_f : function that takes as input a pair of markers
                   and returns their rec. rate.
-    '''
+    """
 
     def __init__(self, mk_list, mk_pairs, recmap_f):
         self.mk = list(mk_list)
@@ -136,8 +138,7 @@ class PhaseSolver():
         self.constraints = []
 
     def add_constraints(self):
-        ''' Build constraints from marker pairs
-        '''
+        """Build constraints from marker pairs"""
         for p in sorted(self.pairs):
             Nkl = self.pairs[p]
             # gt mk indices
@@ -147,7 +148,7 @@ class PhaseSolver():
             rkl = self.recf(p[0], p[1])
             assert rkl > 0
             # get cost
-            Wkl = (Nkl[0]-Nkl[1])*np.log((1-rkl)/rkl)
+            Wkl = (Nkl[0] - Nkl[1]) * np.log((1 - rkl) / rkl)
             # create constraints
             hk = self.Variables[k]
             hl = self.Variables[ell]
@@ -156,22 +157,24 @@ class PhaseSolver():
             else:
                 cost = [0, Wkl, Wkl, 0]
             cost = [int(x) for x in cost]
-            self.constraints.append(nj.PostBinary(hk, hl, cost))  # noqa pylint: disable=no-member
+            self.constraints.append(
+                nj.PostBinary(hk, hl, cost)
+            )  # noqa pylint: disable=no-member
 
     def solve(self, verbose=0):
         """Solve the WCSP and returns the inferred gamete"""
         model = nj.Model()
         for c in self.constraints:
             model.add(c)
-        solver = model.load('Toulbar2')
+        solver = model.load("Toulbar2")
         solver.setVerbosity(verbose)
-        solver.setOption('updateUb', str(1000000))
-        solver.setOption('btdMode', 1)
+        solver.setOption("updateUb", str(1000000))
+        solver.setOption("btdMode", 1)
         solver.solve()
         return [self.Variables[m].get_value() for m in range(self.L)]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     T = PhaseData(test_phase)
     print("Info pairs:", *T.info_pairs.items())
     print("Info mk:", T.info_mk)

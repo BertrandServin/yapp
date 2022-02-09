@@ -27,9 +27,8 @@ from yapp import wcsp
 logger = logging.getLogger(__name__)
 
 
-class Gamete():
-    """A gamete = an haplotype transmitted during meiosis
-    """
+class Gamete:
+    """A gamete = an haplotype transmitted during meiosis"""
 
     def __init__(self, hap=None):
         self.haplotype = hap
@@ -45,8 +44,7 @@ class Gamete():
             try:
                 assert len(geno.shape) == 1
             except AssertionError:
-                raise ValueError(
-                    "Genotype must be (castable to) a 1-D numpy array.")
+                raise ValueError("Genotype must be (castable to) a 1-D numpy array.")
         try:
             assert np.all((geno > -2) & (geno < 3))
         except AssertionError:
@@ -54,7 +52,7 @@ class Gamete():
         return geno
 
     def __str__(self):
-        return ' '.join([f"{x<0 and ' -' or x:2}" for x in self.haplotype])
+        return " ".join([f"{x<0 and ' -' or x:2}" for x in self.haplotype])
 
     @classmethod
     def from_genotype(cls, genotype):
@@ -70,7 +68,7 @@ class Gamete():
         -------
         A Gamete object with haplotype of the same length as genotype.
         Haplotype values are :
-       """
+        """
 
         gam = cls()
         geno = cls.valid_genotype(genotype)
@@ -125,7 +123,7 @@ class Gamete():
         for i, a in enumerate(off_gam.haplotype):
             if a > -1 and off_seg[i] > -1:
                 if par_geno[i] == 1:
-                    gam.haplotype[i] = a if off_seg[i] == 1 else (1-a)
+                    gam.haplotype[i] = a if off_seg[i] == 1 else (1 - a)
                 elif par_geno[i] < 0:
                     gam.haplotype[i] = a
         return gam
@@ -154,9 +152,7 @@ class Gamete():
         if len(phase_data.info_mk) > 0:
             resolved_mk = [het_mk[i] for i in phase_data.info_mk]
             S = wcsp.PhaseSolver(
-                phase_data.info_mk,
-                phase_data.info_pairs,
-                phase_data.recombination
+                phase_data.info_mk, phase_data.info_pairs, phase_data.recombination
             )
             S.add_constraints()
             par_phase = S.solve()
@@ -165,7 +161,7 @@ class Gamete():
 
     @classmethod
     def combine(cls, first, second):
-        '''Combine two gametes into a new one
+        """Combine two gametes into a new one
         Argument
         --------
         first, second : Gametes
@@ -176,7 +172,7 @@ class Gamete():
 
             Number of mismatches and resulting gamete. Any mismatch is
         resolved as -1.
-        '''
+        """
         assert type(first) == Gamete
         assert type(second) == Gamete
         assert len(first.haplotype) == len(second.haplotype)
@@ -215,7 +211,7 @@ class Gamete():
         for i, alleles in enumerate(zip(self.haplotype, other.haplotype)):
             if alleles[0] < 0 or alleles[1] < 0:
                 continue
-            g = alleles[0]+alleles[1]
+            g = alleles[0] + alleles[1]
             assert g < 3
             genotype[i] = g
         return g
@@ -233,7 +229,7 @@ class Gamete():
             if g < 0 or a < 0:
                 continue
             if g == 1:
-                newgam.haplotype[i] = g-a
+                newgam.haplotype[i] = g - a
             else:  # 0 -> (0,0) or 2->(1,1)
                 try:
                     assert ((g == 0) and (a == 0)) or ((g == 2) and (a == 1))

@@ -13,20 +13,20 @@ from . import MALE, FEMALE
 logger = logging.getLogger(__name__)
 
 
-class PedNode():
+class PedNode:
     """A node in the pedigree that consists of an individual and its
-direct relatives.
+    direct relatives.
 
-    Attributes
-    ----------
-    indiv : obj
-       the individual data. Must be hashable.
-    father : obj
-       the individual's father node. Must be a PedNode object.
-    mother : obj
-       the individual's mother node. Must be a PedNode object.
-    children : list of obj
-       the individual's offspring. Must be PedNode objects.
+        Attributes
+        ----------
+        indiv : obj
+           the individual data. Must be hashable.
+        father : obj
+           the individual's father node. Must be a PedNode object.
+        mother : obj
+           the individual's mother node. Must be a PedNode object.
+        children : list of obj
+           the individual's offspring. Must be PedNode objects.
 
     """
 
@@ -67,11 +67,11 @@ direct relatives.
             return 0
         else:
             if self.father is None:
-                return self.mother.gen+1
+                return self.mother.gen + 1
             elif self.mother is None:
-                return self.father.gen+1
+                return self.father.gen + 1
             else:
-                return max(self.mother.gen+1, self.father.gen+1)
+                return max(self.mother.gen + 1, self.father.gen + 1)
 
     @property
     def indiv(self):
@@ -95,11 +95,11 @@ direct relatives.
             assert type(indiv) is PedNode
             self.__father = indiv
         else:
-            raise ValueError('Setting a new father is not possible.')
+            raise ValueError("Setting a new father is not possible.")
 
     @property
     def mother(self):
-        """Mother node """
+        """Mother node"""
         return self.__mother
 
     @mother.setter
@@ -110,7 +110,7 @@ direct relatives.
             assert type(indiv) is PedNode
             self.__mother = indiv
         else:
-            raise ValueError('Setting a new mother is not possible.')
+            raise ValueError("Setting a new mother is not possible.")
 
     @property
     def sex(self):
@@ -120,7 +120,7 @@ direct relatives.
     @sex.setter
     def sex(self, v):
         if self.sex and v != self.sex:
-            raise ValueError(f'Sex mismatch for individual {self.indiv}')
+            raise ValueError(f"Sex mismatch for individual {self.indiv}")
         else:
             assert v == MALE or v == FEMALE or v is None
             self.__sex = v
@@ -132,8 +132,8 @@ direct relatives.
             self.children.append(child)
 
 
-class Pedigree():
-    ''' Pedigree relationships between individuals'''
+class Pedigree:
+    """Pedigree relationships between individuals"""
 
     def __init__(self, members=[]):
         """
@@ -151,7 +151,7 @@ class Pedigree():
             self.add_node(m)
 
     def __iter__(self):
-        """ Iterator on nodes in the pedigree.
+        """Iterator on nodes in the pedigree.
         Parents are guaranteed to precede offspring.
         """
         for n in sorted(self.nodes.values(), key=lambda x: x.gen):
@@ -164,13 +164,13 @@ class Pedigree():
             for ligne in f:
                 buf = ligne.split()
                 ind = buf[1]
-                if buf[2] == '0':
+                if buf[2] == "0":
                     fa = None
                     if parent_from_FID and default_parent == MALE:
                         fa = buf[0]
                 else:
                     fa = buf[2]
-                if buf[3] == '0':
+                if buf[3] == "0":
                     mo = None
                     if parent_from_FID and default_parent == FEMALE:
                         mo = buf[0]
@@ -209,7 +209,8 @@ class Pedigree():
                 except KeyError:
                     logger.warning(
                         "When creating new pedigree from pednodes : "
-                        "father not found in nodes, deleting")
+                        "father not found in nodes, deleting"
+                    )
                     n.father = None
             if n.mother is not None:
                 try:
@@ -217,7 +218,8 @@ class Pedigree():
                 except KeyError:
                     warnings.warn(
                         "When creating new pedigree from pednodes : "
-                        "mother not found in nodes, deleting")
+                        "mother not found in nodes, deleting"
+                    )
                     n.mother = None
             putative_children = n.children[:]
             for c in putative_children:
@@ -226,36 +228,41 @@ class Pedigree():
                 except KeyError:
                     warnings.warn(
                         "When creating new pedigree from pednodes : "
-                        "child not found, deleting")
+                        "child not found, deleting"
+                    )
                     n.children.remove(c)
         return ped
 
     @property
     def founders(self):
-        """List of founders in the pedigree (no known parents) """
+        """List of founders in the pedigree (no known parents)"""
         if self.__founders is None:
-            self.__founders = [x for x in self.nodes.values(
-            ) if x.father is None and x.mother is None]
+            self.__founders = [
+                x for x in self.nodes.values() if x.father is None and x.mother is None
+            ]
         return self.__founders
 
     @property
     def non_founders(self):
-        """List of non founders in the pedigree (at least one know parent) """
+        """List of non founders in the pedigree (at least one know parent)"""
         if self.__non_founders is None:
-            self.__non_founders = [x for x in self.nodes.values(
-            ) if x.father is not None or x.mother is not None]
+            self.__non_founders = [
+                x
+                for x in self.nodes.values()
+                if x.father is not None or x.mother is not None
+            ]
         return self.__non_founders
 
     @property
     def families(self):
         """List of Pedigree objects. One for each independant family in the
-dataset"""
+        dataset"""
         if self.__families is None:
             self.__families = self.build_families()
         return self.__families
 
     def _reset_families(self):
-        """Reset structural information in the pedigree """
+        """Reset structural information in the pedigree"""
         # reset founders / non_founders / families information
         self.__founders = None
         self.__non_founders = None
@@ -264,7 +271,7 @@ dataset"""
             n.gen = None
 
     def add_indiv(self, indiv):
-        ''' Add a new guy to the pedigree'''
+        """Add a new guy to the pedigree"""
         if indiv in self.nodes:
             logger.debug(f"{indiv} is already there")
         else:
@@ -272,11 +279,11 @@ dataset"""
 
     def del_indiv(self, indiv):
         """Remove an individual from the pedigree. Links to its node are
-removed.
+        removed.
 
-        Returns
-        -------
-        the node of the individual if found, else None.
+                Returns
+                -------
+                the node of the individual if found, else None.
 
         """
         try:
@@ -320,7 +327,7 @@ removed.
                     c.mother = node
 
     def set_father(self, offspring, dad):
-        '''Set that a dad -> offspring relationship
+        """Set that a dad -> offspring relationship
 
         If called more than once with a different dad a warning is
         raised and the first call takes precedence.  If dad and/or
@@ -333,7 +340,7 @@ removed.
             offspring to be set. Must be hashable.
         dad : object
            dad to be set. Must be hashable.
-        '''
+        """
         try:
             indiv = self.nodes[offspring]
         except KeyError:
@@ -357,11 +364,11 @@ removed.
         try:
             member = self.nodes[indiv]
         except KeyError:
-            raise KeyError('Individual not found in pedigree')
+            raise KeyError("Individual not found in pedigree")
         return member.father
 
     def set_mother(self, offspring, mom):
-        '''Set that a mom -> offspring relationship
+        """Set that a mom -> offspring relationship
 
         If called more than once with a different mom a warning is
         raised and the first call takes precedence.  If mom and/or
@@ -373,7 +380,7 @@ removed.
            offspring to be set. Must be hashable.
         mom : object
            mom to be set. Must be hashable.
-        '''
+        """
         try:
             indiv = self.nodes[offspring]
         except KeyError:
@@ -397,7 +404,7 @@ removed.
         try:
             member = self.nodes[indiv]
         except KeyError:
-            raise KeyError('Individual not found in pedigree')
+            raise KeyError("Individual not found in pedigree")
         return member.mother
 
     def _get_relatives(self, node, connected=None):
@@ -433,7 +440,7 @@ removed.
     @property
     def unrelated_individuals(self):
         """List of unrelated individuals with no parents and no child in the
-pedigree"""
+        pedigree"""
         return [x.indiv for x in self.founders if len(x.children) == 0]
 
     def del_unrelated(self):
@@ -444,9 +451,9 @@ pedigree"""
             self.del_indiv(indiv)
 
     def build_families(self):
-        '''
+        """
         Cluster individuals by families
-        '''
+        """
         founders2go = self.founders[:]
         offspring2go = self.non_founders[:]
         families = []

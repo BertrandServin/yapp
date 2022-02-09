@@ -1,9 +1,9 @@
 # -*-coding:utf-8 -*
-'''
+"""
 Yapp module recombination.py
 
 Yapp module to analyse recombination information in pedigrees
-'''
+"""
 import sys
 import logging
 import collections.abc
@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 def reg2chr(bedstr):
     """Returns chromosome value from  bed string"""
-    return bedstr.split(':')[0]
+    return bedstr.split(":")[0]
 
 
-class RecombAnalyser():
+class RecombAnalyser:
     def __init__(self, phaser_db):
         self.phaser = family_phaser.Phaser.load(phaser_db)
         self.parents = {}
@@ -36,20 +36,27 @@ class RecombAnalyser():
     @property
     def crossovers(self):
         """Iterator over crossing overs"""
-        return (co for co in ind.meioses.values()  # noqa
-                for ind in self.parents)
+        return (co for co in ind.meioses.values() for ind in self.parents)  # noqa
 
     @property
     def male_crossovers(self):
         """Iterator over male crossing overs"""
-        return (co for co in ind.meioses.values()  # noqa
-                for ind in self.parents if ind.sex == MALE)
+        return (
+            co
+            for co in ind.meioses.values()  # noqa
+            for ind in self.parents
+            if ind.sex == MALE
+        )
 
     @property
     def female_crossovers(self):
         """Iterator over female crossing overs"""
-        return (co for co in ind.meioses.values()  # noqa
-                for ind in self.parents if ind.sex == FEMALE)
+        return (
+            co
+            for co in ind.meioses.values()  # noqa
+            for ind in self.parents
+            if ind.sex == FEMALE
+        )
 
     def add_parent(self, pednode):
         try:
@@ -66,7 +73,7 @@ class RecombAnalyser():
     def genome_size(self):
         res = 0
         for reg in self.phaser.regions:
-            res += self.phaser.data['variants'][reg]['POS'][-1]
+            res += self.phaser.data["variants"][reg]["POS"][-1]
         return res
 
     @staticmethod
@@ -93,7 +100,9 @@ class RecombAnalyser():
         """
         best_guess = np.array([x[0] for x in si])
         phase_prob = np.array([x[1] for x in si])
-        co_loc = np.asarray((best_guess[1:] - best_guess[:-1]) != 0).nonzero()[0]  # noqa
+        co_loc = np.asarray((best_guess[1:] - best_guess[:-1]) != 0).nonzero()[
+            0
+        ]  # noqa
         nco = len(co_loc)
         logger.debug("Found {nco} candidate crossovers")
         res = []
@@ -148,7 +157,7 @@ class RecombAnalyser():
         return 1e8 * np.log(alpha) / (recrate * nmeio)
 
     def run(self, recrate, call):
-        """ Run the recombination analysis """
+        """Run the recombination analysis"""
         logger.info("Finding recombinations")
         self.identify_crossovers(recrate=recrate, call=call)
 
@@ -157,25 +166,21 @@ class RecombAnalyser():
         si_pat = list(zip(segregations[0], seg_probs[0]))
         si_mat = list(zip(segregations[1], seg_probs[1]))
         chp = family_phaser.ChromosomePair.from_phase_data(
-            genotype,
-            gametes[0],
-            gametes[1],
-            si_pat,
-            si_mat
+            genotype, gametes[0], gametes[1], si_pat, si_mat
         )
         return chp
 
     def set_informative_meioses(self):
-        """ Identify informative meioses for each parent """
+        """Identify informative meioses for each parent"""
         logger.info("Set Informative meioses")
         # sample indices
         smpidx = {}
-        for i, name in enumerate(self.phaser.data['samples']):
+        for i, name in enumerate(self.phaser.data["samples"]):
             smpidx[name] = i
         for reg in self.phaser.regions:
             logger.info(f"Working on region {reg}")
             logger.info("Grabbing data")
-            pos = self.phaser.data['variants'][reg]['POS']
+            pos = self.phaser.data["variants"][reg]["POS"]
             mids = np.array([0.5 * (x + y) for x, y in zip(pos[:-1], pos[1:])])
             chrom = reg2chr(reg)
             genotypes = np.array(self.phaser.data["genotypes"][reg])
@@ -184,14 +189,15 @@ class RecombAnalyser():
             for indiv, par in self.parents.items():
                 logger.info(f"Parent {indiv}")
                 idx = smpidx[indiv]
-                par_resolved = (genotypes[idx] == 1) & ((gametes[idx][0] > 0) | (gametes[idx][1] > 0))  # noqa
+                par_resolved = (genotypes[idx] == 1) & (
+                    (gametes[idx][0] > 0) | (gametes[idx][1] > 0)
+                )  # noqa
                 node = self.phaser.pedigree.nodes[indiv]
-                n_meio_info = np.zeros(len(pos)-1, dtype=np.int)
+                n_meio_info = np.zeros(len(pos) - 1, dtype=np.int)
                 for c in node.children:
                     idx = smpidx[c.indiv]
                     par.meioses[c.indiv] = []
-                    child_phased = (gametes[idx][0] > 0) | (
-                        gametes[idx][1] > 0)
+                    child_phased = (gametes[idx][0] > 0) | (gametes[idx][1] > 0)
                     combin_info = par_resolved & child_phased
                     infomk = combin_info.nonzero()[0]
                     if len(infomk) > 0:
@@ -199,7 +205,8 @@ class RecombAnalyser():
                         infomk_r = max(infomk)
                         n_meio_info[infomk_l:infomk_r] += 1
                         self.size_covered[node.sex][chrom] += (
-                            pos[infomk_r]-pos[infomk_l])*1e-6
+                            pos[infomk_r] - pos[infomk_l]
+                        ) * 1e-6
                     logger.debug(
                         f"\t Meiosis -> {c.indiv:24} "
                         f"{round( (pos[infomk_r]-pos[infomk_l])*1e-3)} Kb"
@@ -215,28 +222,29 @@ class RecombAnalyser():
     def identify_crossovers(self, recrate=1, call=0.99):
         logger.info("Gathering crossovers")
         smpidx = {}
-        for i, name in enumerate(self.phaser.data['samples']):
+        for i, name in enumerate(self.phaser.data["samples"]):
             smpidx[name] = i
 
         for reg in self.phaser.regions:
             logger.info(f"Working on: {reg}")
             chrom = reg2chr(reg)
 
-            pos = self.phaser.data['variants'][reg]['POS']
+            pos = self.phaser.data["variants"][reg]["POS"]
             genotypes = np.array(self.phaser.data["genotypes"][reg])
             gametes = np.array(self.phaser.data["phases"][reg]["gametes"])
-            segregations = np.array(
-                self.phaser.data["phases"][reg]["segregations"])
+            segregations = np.array(self.phaser.data["phases"][reg]["segregations"])
             segprobs = np.array(self.phaser.data["phases"][reg]["seg_probs"])
 
             for node in self.phaser.pedigree:
-                sys.stdout.write(f' --> {node.indiv:>24}\r')
+                sys.stdout.write(f" --> {node.indiv:>24}\r")
                 sys.stdout.flush()
-                logger.debug(f"{node.indiv} -- [ "
-                             f"sex:{node.sex} "
-                             f"gen:{node.gen} "
-                             f"par:{(node.father!=None)+(node.mother!=None)} "
-                             f"off:{len(node.children)} ]")
+                logger.debug(
+                    f"{node.indiv} -- [ "
+                    f"sex:{node.sex} "
+                    f"gen:{node.gen} "
+                    f"par:{(node.father!=None)+(node.mother!=None)} "
+                    f"off:{len(node.children)} ]"
+                )
                 idx = smpidx[node.indiv]
 
                 if node.father:
@@ -250,23 +258,32 @@ class RecombAnalyser():
                         # crossovers
                         logger.debug("Finding paternal crossovers")
                         si_pat = list(
-                            zip(segregations[idx, 0, ], segprobs[idx, 0, ]))
+                            zip(
+                                segregations[
+                                    idx,
+                                    0,
+                                ],
+                                segprobs[
+                                    idx,
+                                    0,
+                                ],
+                            )
+                        )
                         cos = self.get_crossovers(si_pat, call=call)
                         for x, y in cos:
-                            par.add_offspring_CO(
-                                node.indiv, chrom, pos[x], pos[y])
+                            par.add_offspring_CO(node.indiv, chrom, pos[x], pos[y])
                         # coverage
-                        par_resolved = (genotypes[idx_pat] == 1) & ( (gametes[idx_pat][0] > -1) & (gametes[idx_pat][1] > -1)) # noqa
-                        child_phased = (gametes[idx][0] > -1)
+                        par_resolved = (genotypes[idx_pat] == 1) & (
+                            (gametes[idx_pat][0] > -1) & (gametes[idx_pat][1] > -1)
+                        )  # noqa
+                        child_phased = gametes[idx][0] > -1
                         combin_info = par_resolved & child_phased
                         infomk = combin_info.nonzero()[0]
                         if len(infomk) > 0:
                             infomk_l = min(infomk)
                             infomk_r = max(infomk)
                             par.add_offspring_coverage(
-                                node.indiv,
-                                chrom,
-                                pos[infomk_l], pos[infomk_r]
+                                node.indiv, chrom, pos[infomk_l], pos[infomk_r]
                             )
                 if node.mother:
                     try:
@@ -276,52 +293,65 @@ class RecombAnalyser():
                         pass
                     else:
                         si_mat = list(
-                            zip(segregations[idx, 1, ], segprobs[idx, 1, ]))
+                            zip(
+                                segregations[
+                                    idx,
+                                    1,
+                                ],
+                                segprobs[
+                                    idx,
+                                    1,
+                                ],
+                            )
+                        )
                         cos = self.get_crossovers(si_mat)
                         for x, y in cos:
-                            par.add_offspring_CO(
-                                node.indiv, chrom, pos[x], pos[y])
+                            par.add_offspring_CO(node.indiv, chrom, pos[x], pos[y])
                         # coverage
-                        par_resolved = (genotypes[idx_mat] == 1) & ((gametes[idx_mat][0] > -1) & (gametes[idx_mat][1] > -1)) # noqa
-                        child_phased = (gametes[idx][1] > -1) # noqa
+                        par_resolved = (genotypes[idx_mat] == 1) & (
+                            (gametes[idx_mat][0] > -1) & (gametes[idx_mat][1] > -1)
+                        )  # noqa
+                        child_phased = gametes[idx][1] > -1  # noqa
                         combin_info = par_resolved & child_phased
                         infomk = combin_info.nonzero()[0]
                         if len(infomk) > 0:
                             infomk_l = min(infomk)
                             infomk_r = max(infomk)
                             par.add_offspring_coverage(
-                                node.indiv,
-                                chrom,
-                                pos[infomk_l], pos[infomk_r]
+                                node.indiv, chrom, pos[infomk_l], pos[infomk_r]
                             )
 
     def write_results(self, prefix):
-        with open(prefix+'_yapp_recomb_coverage.txt', 'w') as fout:
+        with open(prefix + "_yapp_recomb_coverage.txt", "w") as fout:
             print("parent sex offspring chrom left right", file=fout)
             for name, par in self.parents.items():
                 for off in par.coverage:
                     for chrom in par.coverage[off]:
-                        print(f"{name} "
-                              f"{((par.sex==None) and 'U') or ((par.sex==MALE) and 'M' or 'F')} " # noqa
-                              f"{off} "
-                              f"{chrom} "
-                              f"{par.coverage[off][chrom][0]} "
-                              f"{par.coverage[off][chrom][1]}",
-                              file=fout)
-        with open(prefix+'_yapp_recombinations.txt', 'w') as fout:
+                        print(
+                            f"{name} "
+                            f"{((par.sex==None) and 'U') or ((par.sex==MALE) and 'M' or 'F')} "  # noqa
+                            f"{off} "
+                            f"{chrom} "
+                            f"{par.coverage[off][chrom][0]} "
+                            f"{par.coverage[off][chrom][1]}",
+                            file=fout,
+                        )
+        with open(prefix + "_yapp_recombinations.txt", "w") as fout:
             print("parent sex offspring chrom left right", file=fout)
             for name, par in self.parents.items():
                 for off in par.meioses:
                     for co in sorted(par.meioses[off]):
-                        print(f"{name} "
-                              f"{((par.sex==None) and 'U') or ((par.sex==MALE) and 'M' or 'F')} " # noqa
-                              f"{off} "
-                              f"{co.chrom} {co.left} {co.right}",
-                              file=fout)
+                        print(
+                            f"{name} "
+                            f"{((par.sex==None) and 'U') or ((par.sex==MALE) and 'M' or 'F')} "  # noqa
+                            f"{off} "
+                            f"{co.chrom} {co.left} {co.right}",
+                            file=fout,
+                        )
 
 
-class Parent():
-    '''Class for storing information for each parent
+class Parent:
+    """Class for storing information for each parent
 
     Attributes
     ----------
@@ -337,7 +367,7 @@ class Parent():
     - nmeio_info: function: x(chrom,pos) -> int
         a function that returns the number of meiosis at a given
         genomic coordinate
-    '''
+    """
 
     def __init__(self, name, sex=None):
         self.name = name
@@ -352,41 +382,41 @@ class Parent():
 
     @property
     def nb_CO_meioses(self):
-        '''
+        """
         List of the number of crossovers for each meiosis
-        '''
+        """
         return [len(v) for v in self.meioses.values()]
 
     @property
     def nb_CO_tot(self):
-        '''
+        """
         Total number of crossing over in all meioses
-        '''
+        """
         return np.sum(self.nb_CO_meioses)
 
     def get_offspring_CO(self, name):
-        '''
+        """
         Get the list of CO for offspring with name *name*
-        '''
+        """
         return self.meioses[name]
 
     def add_offspring_CO(self, name, chro, left, right):
-        '''
+        """
         Add a crossing over in offspring *name*
         on chromosome *chro* between *left* and *right*
-        '''
+        """
         myco = CrossingOver(chro, left, right)
         self.meioses[name].append(myco)
 
     def add_offspring_coverage(self, name, chro, left, right):
-        '''
+        """
         Add coveage for offspring *name*
         on chromosome chro between left and right
-        '''
+        """
         self.coverage[name][chro] = (left, right)
 
     def n_info_meioses(self, chrom, pos):
-        '''Get the number of informative meioses for the parent
+        """Get the number of informative meioses for the parent
         at position pos on chromosome chrom.
 
         Arguments
@@ -400,14 +430,14 @@ class Parent():
         -------
         int
            number of informative meioses
-        '''
+        """
         try:
             return self._nmeio_info(chrom, pos)
         except TypeError:
             return self.nmeioses
 
     def set_n_info_meioses(self, chrom, positions, values):
-        '''Enter information on the number of informative meioses on
+        """Enter information on the number of informative meioses on
         a chromosome, at a set of positions.
 
         Arguments
@@ -418,17 +448,16 @@ class Parent():
             Positions at which the number of informative meioses is known
         - values: array of int
             Number of informative meioses at each position
-        '''
+        """
         if self._nmeio_info is None:
             self._nmeio_info = Nmeioses(self.nmeioses)
         self._nmeio_info.add_predictor(chrom, positions, values)
 
     def n_info_meioses_seg(self, chrom, left, right):
-        return max(self.n_info_meioses(chrom, left),
-                   self.n_info_meioses(chrom, right))
+        return max(self.n_info_meioses(chrom, left), self.n_info_meioses(chrom, right))
 
     def oi_xi(self, chrom, w_left, w_right):
-        '''Computes probabilities that each crossing over in the parent
+        """Computes probabilities that each crossing over in the parent
         occurs in genomic region on chromosome *chrom* between
         positions *w_left* and *w_right*.
 
@@ -436,17 +465,19 @@ class Parent():
         -- list of contributions for each CO
         -- number of informative meioses for the parent in the region
 
-        '''
+        """
         contrib = []
         for m in self.meioses.values():
             for co in m:
-                if co.chro == chrom and not ((w_right < co.left) or (w_left > co.right)): # noqa
+                if co.chro == chrom and not (
+                    (w_right < co.left) or (w_left > co.right)
+                ):  # noqa
                     contrib += [co.oi_xi(w_left, w_right)]
         return (contrib, self.n_info_meioses_seg(chrom, w_left, w_right))
 
 
 class Nmeioses(collections.abc.Callable):
-    '''Class offering a callable interface to interpolate the number of
+    """Class offering a callable interface to interpolate the number of
     informative meioses from observed data.
 
     Usage
@@ -461,7 +492,7 @@ class Nmeioses(collections.abc.Callable):
     int
        Interpolated number of meioses. 0 if outside training range
 
-    '''
+    """
 
     def __init__(self, default_value):
         self.default = int(default_value)
@@ -477,15 +508,15 @@ class Nmeioses(collections.abc.Callable):
         self.predictors[chrom] = interp1d(positions, values, fill_value=0)
 
 
-class CrossingOver():
-    '''
+class CrossingOver:
+    """
     Class to store crossing over information
 
     Attributes:
     -- chro: chromosome
     -- left: position of the marker on the left side
     -- right: position of the marker on the right side
-    '''
+    """
 
     def __init__(self, chrom, left, right):
         assert right > left
@@ -494,17 +525,21 @@ class CrossingOver():
         self.right = right
 
     def __lt__(self, other):
-        return (self.chrom, self.left, self.right) < (other.chrom, other.left, other.right) # noqa
+        return (self.chrom, self.left, self.right) < (
+            other.chrom,
+            other.left,
+            other.right,
+        )  # noqa
 
     @property
     def size(self):
-        return self.right-self.left
+        return self.right - self.left
 
     def oi_xi(self, w_left, w_right):
-        '''Computes the probability that the crossing over occured n the
+        """Computes the probability that the crossing over occured n the
         window between w_left and w_right
 
-        '''
+        """
         if (w_right < self.left) or (w_left > self.right):
             # no overlap
             # wl------wr               wl----------wr
@@ -519,12 +554,12 @@ class CrossingOver():
             # window is included in co
             #       wl------wr
             # sl---------------------sr
-            return float(w_right - w_left)/(self.right-self.left)
-        elif (w_left < self.left):
+            return float(w_right - w_left) / (self.right - self.left)
+        elif w_left < self.left:
             # we know w_right<self.right as other case is treated above
             # wl-----------------wr
             #     sl------------------sr
-            return float(w_right-self.left)/(self.right-self.left)
+            return float(w_right - self.left) / (self.right - self.left)
         else:
             # only case left
             #     wl-----------------wr
@@ -534,13 +569,13 @@ class CrossingOver():
             except AssertionError:
                 print(self.right, w_right, self.left, w_left)
                 raise
-            return float(self.right-w_left)/(self.right-self.left)
+            return float(self.right - w_left) / (self.right - self.left)
 
 
 def main(args):
     prfx = args.prfx
 
-    phaser_db = prfx+'.db'
+    phaser_db = prfx + ".db"
     analyzer = RecombAnalyser(phaser_db)
     analyzer.run(recrate=args.rho, call=args.minsp)
     analyzer.write_results(prfx)

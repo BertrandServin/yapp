@@ -13,7 +13,7 @@ from cyvcf2 import VCF
 
 logger = logging.getLogger(__name__)
 
-modes_avail = ['genotype', 'inbred', 'phased', 'likelihood']
+modes_avail = ["genotype", "inbred", "phased", "likelihood"]
 default_mode = modes_avail[0]
 
 
@@ -54,16 +54,16 @@ def chunk_region(reg, chunksize=-1):
     """
     if chunksize < 0:
         return [reg]
-    chrom, coords = reg.split(':')
-    beg, end = coords.split('-')
-    beg = int(beg.replace(',', ''))
-    end = int(end.replace(',', ''))
+    chrom, coords = reg.split(":")
+    beg, end = coords.split("-")
+    beg = int(beg.replace(",", ""))
+    end = int(end.replace(",", ""))
     starts = np.arange(beg, end, step=chunksize, dtype=int)
     ends = [int(x + chunksize - 1) for x in starts]
     ends[-1] = end
     reglist = []
     for i, s in enumerate(starts):
-        newreg = chrom + ':' + str(s) + '-' + str(ends[i])
+        newreg = chrom + ":" + str(s) + "-" + str(ends[i])
         reglist.append(newreg)
     return reglist
 
@@ -84,8 +84,7 @@ def vcf_chunk_regions(fname, chunksize=-1):
         List of regions in bed format. If chunksize is <0, regions are contigs.
     """
     v = VCF(fname, lazy=True)
-    regions = [name + ':' + '0-' + str(l)
-               for name, l in zip(v.seqnames, v.seqlens)]
+    regions = [name + ":" + "0-" + str(l) for name, l in zip(v.seqnames, v.seqlens)]
     if chunksize > 0:
         new_regions = []
         for r in regions:
@@ -94,8 +93,15 @@ def vcf_chunk_regions(fname, chunksize=-1):
     return regions
 
 
-def vcf2fph(fname, mode=default_mode,
-            samples=None, reg=None, maf=0.01, varids=None, genotypes=True):
+def vcf2fph(
+    fname,
+    mode=default_mode,
+    samples=None,
+    reg=None,
+    maf=0.01,
+    varids=None,
+    genotypes=True,
+):
     """Parses a VCF file and returns data arrays usable with
     the fastphase package
 
@@ -173,31 +179,38 @@ def vcf2fph(fname, mode=default_mode,
         if len(snps) == 0:
             continue
         variants[r] = sorted(snps, key=lambda x: x.POS)
-        variants_summary[r] = [(s.ID, s.CHROM, s.POS, s.REF, s.ALT[0])
-                               for s in variants[r]]
+        variants_summary[r] = [
+            (s.ID, s.CHROM, s.POS, s.REF, s.ALT[0]) for s in variants[r]
+        ]
         fphdata[r] = {}
         trueregions.append(r)
         if genotypes:
             for i, sid in enumerate(smp):
-                if mode == 'likelihood':
+                if mode == "likelihood":
                     fphdata[r][sid] = phred2ln(
                         np.array(
-                            [[s.gt_phred_ll_homref[i],
-                              s.gt_phred_ll_het[i],
-                              s.gt_phred_ll_homalt[i]] for s in variants[r]],
-                            dtype=np.float)
+                            [
+                                [
+                                    s.gt_phred_ll_homref[i],
+                                    s.gt_phred_ll_het[i],
+                                    s.gt_phred_ll_homalt[i],
+                                ]
+                                for s in variants[r]
+                            ],
+                            dtype=np.float,
+                        )
                     )
                 else:
                     geno = [s.genotypes[i] for s in variants[r]]
-                    if mode == 'genotype':
+                    if mode == "genotype":
                         fphdata[r][sid] = np.array(
                             [geno2int(*g[:2]) for g in geno], dtype=np.int
                         )
-                    elif mode == 'inbred':
+                    elif mode == "inbred":
                         fphdata[r][sid] = np.array(
                             [geno2hap(*g[:2]) for g in geno], dtype=np.int
                         )
-                    elif mode == 'phased':
+                    elif mode == "phased":
                         h1 = []
                         h2 = []
                         for g in geno:
@@ -207,18 +220,25 @@ def vcf2fph(fname, mode=default_mode,
                             else:
                                 h1.append(-1)
                                 h2.append(-1)
-                        fphdata[r][sid + '.h1'] = np.array(h1, dtype=np.int)
-                        fphdata[r][sid + '.h2'] = np.array(h2, dtype=np.int)
+                        fphdata[r][sid + ".h1"] = np.array(h1, dtype=np.int)
+                        fphdata[r][sid + ".h2"] = np.array(h2, dtype=np.int)
     return {
-        'regions': trueregions,
-        'samples': smp,
-        'variants': variants_summary,
-        'data': fphdata
+        "regions": trueregions,
+        "samples": smp,
+        "variants": variants_summary,
+        "data": fphdata,
     }
 
 
-def vcf2zarr(fname, output_prefix=None, mode=default_mode,
-             samples=None, reg=None, maf=0.01, varids=None):
+def vcf2zarr(
+    fname,
+    output_prefix=None,
+    mode=default_mode,
+    samples=None,
+    reg=None,
+    maf=0.01,
+    varids=None,
+):
     """Parses a VCF file and creates a ZARR file with its contents
 
     Parameters
@@ -264,10 +284,10 @@ def vcf2zarr(fname, output_prefix=None, mode=default_mode,
 
     v = VCF(fname, gts012=True, strict_gt=True, samples=samples, lazy=True)
     if not output_prefix:
-        output_prefix = fname.split('.')[0]
-    fzname = output_prefix + '.zarr'
-    fz = zarr.open(fzname, 'w')
-    fz.attrs['archive'] = fzname
+        output_prefix = fname.split(".")[0]
+    fzname = output_prefix + ".zarr"
+    fz = zarr.open(fzname, "w")
+    fz.attrs["archive"] = fzname
     smp = v.samples  # might differ if some requested are not found
     if reg is None:
         _regions = v.seqnames
@@ -283,11 +303,11 @@ def vcf2zarr(fname, output_prefix=None, mode=default_mode,
         raise IOError(f"No SNP found in {fname}")
 
     logger.info("Creating Archive structure")
-    fz['samples'] = zarr.array(smp, dtype='U50')
-    fz['regions'] = zarr.array(regions, dtype='U50')
+    fz["samples"] = zarr.array(smp, dtype="U50")
+    fz["regions"] = zarr.array(regions, dtype="U50")
     for i, reg in enumerate(regions):
-        fz.create_group(f'variants/{reg}')
-    fz.create_group('genotypes')
+        fz.create_group(f"variants/{reg}")
+    fz.create_group("genotypes")
 
     if varids is None:
         keepvar = defaultdict(lambda: True)
@@ -307,42 +327,43 @@ def vcf2zarr(fname, output_prefix=None, mode=default_mode,
         if len(snps) == 0:
             continue
         variants = sorted(snps, key=lambda x: x.POS)
-        fz[f"variants/{r}/ID"] = np.array(
-            [s.ID for s in variants], dtype='U50')
-        fz[f"variants/{r}/CHROM"] = np.array(
-            [s.CHROM for s in variants], dtype='U50')
-        fz[f"variants/{r}/POS"] = np.array(
-            [s.POS for s in variants], dtype=np.uint32)
-        fz[f"variants/{r}/REF"] = np.array(
-            [s.REF for s in variants], dtype='S20')
-        fz[f"variants/{r}/ALT"] = np.array([s.ALT[0]
-                                           for s in variants], dtype='S20')
+        fz[f"variants/{r}/ID"] = np.array([s.ID for s in variants], dtype="U50")
+        fz[f"variants/{r}/CHROM"] = np.array([s.CHROM for s in variants], dtype="U50")
+        fz[f"variants/{r}/POS"] = np.array([s.POS for s in variants], dtype=np.uint32)
+        fz[f"variants/{r}/REF"] = np.array([s.REF for s in variants], dtype="S20")
+        fz[f"variants/{r}/ALT"] = np.array([s.ALT[0] for s in variants], dtype="S20")
 
         data = []
         for i, sid in enumerate(smp):
             sys.stdout.write(f"{sid:<20} {100*(i+1)/len(smp):.2f} %\r")
             sys.stdout.flush()
-            if mode == 'likelihood':
+            if mode == "likelihood":
                 gind = phred2ln(
                     np.array(
-                        [[s.gt_phred_ll_homref[i],
-                          s.gt_phred_ll_het[i],
-                          s.gt_phred_ll_homalt[i]] for s in variants[r]],
-                        dtype=np.float)
+                        [
+                            [
+                                s.gt_phred_ll_homref[i],
+                                s.gt_phred_ll_het[i],
+                                s.gt_phred_ll_homalt[i],
+                            ]
+                            for s in variants[r]
+                        ],
+                        dtype=np.float,
+                    )
                 )
             else:
                 geno = [s.genotypes[i] for s in variants]
-                if mode == 'genotype':
-                    gind = np.array([geno2int(*g[:2])
-                                    for g in geno], dtype=np.int8)
-                elif mode == 'inbred':
-                    gind = np.array([geno2hap(*g[:2])
-                                    for g in geno], dtype=np.int8)
-                elif mode == 'phased':
+                if mode == "genotype":
+                    gind = np.array([geno2int(*g[:2]) for g in geno], dtype=np.int8)
+                elif mode == "inbred":
+                    gind = np.array([geno2hap(*g[:2]) for g in geno], dtype=np.int8)
+                elif mode == "phased":
                     gind = np.array(
-                        [[g[0] if g[2] else -1 for g in geno],
-                         [g[1] if g[2] else -1 for g in geno]],
-                        dtype=np.int8
+                        [
+                            [g[0] if g[2] else -1 for g in geno],
+                            [g[1] if g[2] else -1 for g in geno],
+                        ],
+                        dtype=np.int8,
                     )
             data.append(gind)
         fz[f"genotypes/{r}"] = zarr.array(data, chunks=False)
