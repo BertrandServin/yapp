@@ -9,12 +9,3 @@ before_script:
 stages:
   - Static Analysis
 
-flake8:
-  stage: Static Analysis
-  script:
-  - flake8 --max-line-length=120 yapp/*.py
-
-pylint:
-  stage: Static Analysis
-  script:
-    - pylint --ignore=wcsp.py --ignored-modules=scipy.special -E yapp/*.py
