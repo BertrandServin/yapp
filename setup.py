@@ -1,6 +1,7 @@
 from setuptools import setup
 import yapp
 
+
 def readme():
     with open("README.md") as f:
         return f.read()
@@ -24,7 +25,7 @@ setup(
         "zarr >= 2.7.0",
         "h5py >= 3.2.1",
         "fastphase >= 1.2",
-        "numba >= 0.53.1"
+        "numba >= 0.53.1",
     ],
     scripts=["bin/fphtrain", "bin/yapp"],
     zip_safe=False,
