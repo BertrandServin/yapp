@@ -1,5 +1,5 @@
 from setuptools import setup
-
+import yapp
 
 def readme():
     with open("README.md") as f:
@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="yappgen",
-    version="0.2a",
+    version=yapp.__version__,
     description="Yet Another Phasing Program",
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -17,7 +17,15 @@ setup(
     author_email="bertrand.servin@inrae.fr",
     license="LGPLv2.1",
     packages=["yapp"],
-    install_requires=["numpy", "scipy", "cyvcf2", "zarr", "h5py", "fastphase"],
+    install_requires=[
+        "numpy >= 1.20.2",
+        "scipy >= 1.6.2",
+        "cyvcf2 >= 0.30.4",
+        "zarr >= 2.7.0",
+        "h5py >= 3.2.1",
+        "fastphase >= 1.2",
+        "numba >= 0.53.1"
+    ],
     scripts=["bin/fphtrain", "bin/yapp"],
     zip_safe=False,
 )

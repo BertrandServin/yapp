@@ -16,9 +16,12 @@ Genetic distance is assumed to be 0.1 cM between each marker pair
 
 """
 # pylint: disable=C0103
+import os, sys
 from collections import defaultdict
 import numpy as np
-import Numberjack as nj  # pylint disable=import-error
+
+##import Numberjack as nj  # pylint disable=import-errora
+from pytoulbar2 import CFN
 
 test_phase = {
     "T1": [1, -1, -1, 0, 1, -1, 1],
@@ -131,10 +134,6 @@ class PhaseSolver:
         except AssertionError as e:
             raise ValueError("WCSP problem must have size > 1") from e
         # Initialize Optim. model
-        # Creates an array of phase indicators
-        self.Variables = nj.VarArray(self.L)
-        # Init model with simple constraint Var[0]==False
-        self.init_constraint = self.Variables[0] == 0
         self.constraints = []
 
     def add_constraints(self):
@@ -144,34 +143,45 @@ class PhaseSolver:
             # gt mk indices
             k = self.mk.index(p[0])
             ell = self.mk.index(p[1])
-            # ger recomb rate
+            # get recomb rate
             rkl = self.recf(p[0], p[1])
             assert rkl > 0
             # get cost
             Wkl = (Nkl[0] - Nkl[1]) * np.log((1 - rkl) / rkl)
             # create constraints
-            hk = self.Variables[k]
-            hl = self.Variables[ell]
             if Wkl < 0:
-                cost = [-Wkl, 0, 0, -Wkl]
+                cost = [-Wkl, 0.0, 0.0, -Wkl]
             else:
-                cost = [0, Wkl, Wkl, 0]
-            cost = [int(x) for x in cost]
-            self.constraints.append(
-                nj.PostBinary(hk, hl, cost)
-            )  # noqa pylint: disable=no-member
+                cost = [0.0, Wkl, Wkl, 0.0]
+            self.constraints.append(([k, ell], cost))
 
-    def solve(self, verbose=0):
+    def solve(self, verbose=0, MAXCOST=1000000, VERBOSITY=-1):
         """Solve the WCSP and returns the inferred gamete"""
-        model = nj.Model()
+        Problem = CFN(MAXCOST, resolution=4)
+        # resolution=4 (number of digits after dot in floatting costs)
+        # vac=1 (add this option to perform VAC in preprocessing)
+        # Creates an array of phase indicators
+        for i in range(self.L):
+            Problem.AddVariable("p" + str(i), range(2))
+        # fix p[0] == 0
+        Problem.CFN.wcsp.assign(0, 0)
+        # add constraints
         for c in self.constraints:
-            model.add(c)
-        solver = model.load("Toulbar2")
-        solver.setVerbosity(verbose)
-        solver.setOption("updateUb", str(1000000))
-        solver.setOption("btdMode", 1)
-        solver.solve()
-        return [self.Variables[m].get_value() for m in range(self.L)]
+            Problem.AddFunction(c[0], c[1])
+        Problem.Option.verbose = VERBOSITY
+        Problem.Option.btdMode = 1
+        sys.stderr = open(os.devnull, "w")
+        try:
+            res = Problem.Solve()
+        except Exception:
+            if len(Problem.CFN.solution()) > 0:
+                return Problem.CFN.solution()
+            else:
+                return None
+        if res and len(res[0]) > 0:
+            return res[0]
+        else:
+            return None
 
 
 if __name__ == "__main__":
