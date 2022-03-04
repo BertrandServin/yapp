@@ -144,10 +144,11 @@ class Gamete:
         pg = Gamete.valid_genotype(par_geno)
         het_mk = np.where(pg == 1)[0]
         hap_data = {}
-        new_gam = Gamete()
-        new_gam.haplotype = np.full_like(pg, -1)
+        new_gam = Gamete.from_genotype(pg)
         for k, v in dict_child_gam.items():
             hap_data[k] = list(dict_child_gam[k].haplotype[het_mk])
+        if mkpos is not None:
+            mkpos = mkpos[het_mk]
         phase_data = wcsp.PhaseData(hap_data, mkpos)
         if len(phase_data.info_mk) > 0:
             resolved_mk = [het_mk[i] for i in phase_data.info_mk]
@@ -155,8 +156,11 @@ class Gamete:
                 phase_data.info_mk, phase_data.info_pairs, phase_data.recombination
             )
             S.add_constraints()
-            par_phase = S.solve()
-            new_gam.haplotype[resolved_mk] = par_phase
+            try:
+                par_phase = S.solve()
+                new_gam.haplotype[resolved_mk] = par_phase
+            except RuntimeError:
+                logger.warning("WCSP solver failure")
         return new_gam
 
     @classmethod

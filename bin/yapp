@@ -5,12 +5,16 @@ import argparse
 import logging
 from multiprocessing import cpu_count
 from yapp import mendel, family_phaser, recombination, origins, sperm
+from yapp import __version__ as version
 
 log_config = {"debug": logging.DEBUG, "info": logging.INFO, "warning": logging.WARNING}
 
 
 def yapp_parser():
     parser = argparse.ArgumentParser(prog="yapp")
+    parser.add_argument(
+        "-v", "--version", action="version", version=f"%(prog)s version {version}"
+    )
     parser.add_argument(
         "--log-level", choices=["debug", "info", "warning"], default="info"
     )

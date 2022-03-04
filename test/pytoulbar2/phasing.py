@@ -15,17 +15,27 @@ T3: (0,4),(4,6)
 Genetic distance is assumed to be 0.1 cM between each marker pair
 
 """
-import os, sys
+# pylint: disable=C0103
+
+import sys
+import json
+import lzma
+
 from collections import defaultdict
 import numpy as np
+
+VERBOSITY = 0
+MAXCOST = 1000000
 from pytoulbar2 import CFN
 
-test_phase = {
-    "T1": [1, -1, -1, 0, 1, -1, 1],
-    "T2": [-1, -1, -1, 0, 1, -1, 0],
-    "T3": [0, -1, -1, -1, 0, -1, 0],
-    "T4": [-1, -1, -1, -1, -1, -1, -1],
-}
+if sys.argv[1].rfind(".xz") != -1:
+    f = lzma.open(sys.argv[1])
+    json_bytes = f.read()
+    stri = json_bytes.decode("utf-8")
+    test_phase = json.loads(stri)
+else:
+    f = open(sys.argv[1])
+    test_phase = json.load(f)
 
 
 class PhaseData:
@@ -152,11 +162,11 @@ class PhaseSolver:
                 cost = [0.0, Wkl, Wkl, 0.0]
             self.constraints.append(([k, ell], cost))
 
-    def solve(self, verbose=-1, MAXCOST=1000000):
+    def solve(self, verbose=0):
         """Solve the WCSP and returns the inferred gamete"""
-        Problem = CFN(MAXCOST, resolution=4)
-        # resolution=4 (number of digits after dot in floating costs)
-        # vac=1 (add this option to perform VAC in preprocessing)
+        Problem = CFN(
+            MAXCOST, resolution=4
+        )  # resolution=4 (number of digits after dot in floatting costs) vac=1 (add this option to perform VAC in preprocessing)
         # Creates an array of phase indicators
         for i in range(self.L):
             Problem.AddVariable("p" + str(i), range(2))
@@ -165,19 +175,31 @@ class PhaseSolver:
         # add constraints
         for c in self.constraints:
             Problem.AddFunction(c[0], c[1])
-        Problem.Option.verbose = verbose
+
+        # Problem.Option.FullEAC = False
+        # Problem.Option.VACthreshold = True
+        # Problem.Option.useRASPS = 1
+        # Problem.Option.RASPSnbBacktracks = 1000
+        # Problem.Option.RASPSreset = True
+        # Problem.Option.RASPSangle = 5
+        # Problem.Option.incop_cmd = '0 1 3 idwa 100000 cv v 0 200 1 0 0'
+
+        # Problem.Option.showSolutions = 3
+        # Problem.Dump('data.cfn')
+        # Problem.NoPreprocessing()
+        Problem.Option.verbose = VERBOSITY
         Problem.Option.btdMode = 1
         try:
             res = Problem.Solve()
         except Exception:
             if len(Problem.CFN.solution()) > 0:
-                res = [Problem.CFN.solution()]
+                return Problem.CFN.solution()
             else:
-                raise RuntimeError("WCSP Solver failed")
+                return None
         if res and len(res[0]) > 0:
             return res[0]
         else:
-            raise RuntimeError("WCSP Solver failed")
+            return None
 
 
 if __name__ == "__main__":
