@@ -15,12 +15,9 @@ T3: (0,4),(4,6)
 Genetic distance is assumed to be 0.1 cM between each marker pair
 
 """
-# pylint: disable=C0103
 import os, sys
 from collections import defaultdict
 import numpy as np
-
-##import Numberjack as nj  # pylint disable=import-errora
 from pytoulbar2 import CFN
 
 test_phase = {
@@ -155,10 +152,10 @@ class PhaseSolver:
                 cost = [0.0, Wkl, Wkl, 0.0]
             self.constraints.append(([k, ell], cost))
 
-    def solve(self, verbose=0, MAXCOST=1000000, VERBOSITY=-1):
+    def solve(self, verbose=-1, MAXCOST=1000000):
         """Solve the WCSP and returns the inferred gamete"""
         Problem = CFN(MAXCOST, resolution=4)
-        # resolution=4 (number of digits after dot in floatting costs)
+        # resolution=4 (number of digits after dot in floating costs)
         # vac=1 (add this option to perform VAC in preprocessing)
         # Creates an array of phase indicators
         for i in range(self.L):
@@ -168,20 +165,19 @@ class PhaseSolver:
         # add constraints
         for c in self.constraints:
             Problem.AddFunction(c[0], c[1])
-        Problem.Option.verbose = VERBOSITY
+        Problem.Option.verbose = verbose
         Problem.Option.btdMode = 1
-        sys.stderr = open(os.devnull, "w")
         try:
             res = Problem.Solve()
         except Exception:
             if len(Problem.CFN.solution()) > 0:
-                return Problem.CFN.solution()
+                res = [Problem.CFN.solution()]
             else:
-                return None
+                raise RuntimeError("WCSP Solver failed")
         if res and len(res[0]) > 0:
             return res[0]
         else:
-            return None
+            raise RuntimeError("WCSP Solver failed")
 
 
 if __name__ == "__main__":

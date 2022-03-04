@@ -1,4 +1,4 @@
-''' Phasing Half-Sib families using the WCSP approach of Favier(2011)
+""" Phasing Half-Sib families using the WCSP approach of Favier(2011)
 
 Test data corresponds to phase information:
 
@@ -14,7 +14,7 @@ T3: (0,4),(4,6)
 
 Genetic distance is assumed to be 0.1 cM between each marker pair
 
-'''
+"""
 # pylint: disable=C0103
 
 import sys
@@ -31,14 +31,15 @@ from pytoulbar2 import CFN
 if sys.argv[1].rfind(".xz") != -1:
     f = lzma.open(sys.argv[1])
     json_bytes = f.read()
-    stri = json_bytes.decode('utf-8')
+    stri = json_bytes.decode("utf-8")
     test_phase = json.loads(stri)
 else:
     f = open(sys.argv[1])
     test_phase = json.load(f)
 
-class PhaseData():
-    '''
+
+class PhaseData:
+    """
     Class to format phase information data into WCSP variables
 
     Parameters:
@@ -59,7 +60,7 @@ class PhaseData():
      -----
      -- genetic map
 
-    '''
+    """
 
     def __init__(self, rawphase, mkpos=None):
         self.rawphase = rawphase
@@ -92,7 +93,7 @@ class PhaseData():
                 except KeyError:
                     self.info_pairs[p] = [0, 0]
                     Nvec = self.info_pairs[p]
-                Nvec[1-npair] += 1
+                Nvec[1 - npair] += 1
         # informative markers are all mks seen in pairs
         info_mk = defaultdict(int)
         for k in self.info_pairs:
@@ -104,21 +105,21 @@ class PhaseData():
         """Returns recombination rate between marker i and j
         from their positions (in cM).
         """
-        dtot = abs(self.mkpos[i]-self.mkpos[j])
-        return 0.5*(1-np.exp(-dtot/50))
+        dtot = abs(self.mkpos[i] - self.mkpos[j])
+        return 0.5 * (1 - np.exp(-dtot / 50))
 
     @staticmethod
     def recrate(i, j, d=0.01):
-        '''
+        """
         returns rec. rate between marker indices i and j
         assuming each adj. markers are separeted by d (default 0.01) cM
-        '''
-        dtot = abs(i-j)*d
-        return 0.5*(1-np.exp(-dtot/50))
+        """
+        dtot = abs(i - j) * d
+        return 0.5 * (1 - np.exp(-dtot / 50))
 
 
-class PhaseSolver():
-    '''
+class PhaseSolver:
+    """
     A class to Solve the phase of a parent.
 
     Parameters:
@@ -128,7 +129,7 @@ class PhaseSolver():
     -- mk_pairs : dict of pairs of markers (see PhaseData class)
     -- recmap_f : function that takes as input a pair of markers
                   and returns their rec. rate.
-    '''
+    """
 
     def __init__(self, mk_list, mk_pairs, recmap_f):
         self.mk = list(mk_list)
@@ -143,8 +144,7 @@ class PhaseSolver():
         self.constraints = []
 
     def add_constraints(self):
-        ''' Build constraints from marker pairs
-        '''
+        """Build constraints from marker pairs"""
         for p in sorted(self.pairs):
             Nkl = self.pairs[p]
             # gt mk indices
@@ -154,52 +154,55 @@ class PhaseSolver():
             rkl = self.recf(p[0], p[1])
             assert rkl > 0
             # get cost
-            Wkl = (Nkl[0]-Nkl[1])*np.log((1-rkl)/rkl)
+            Wkl = (Nkl[0] - Nkl[1]) * np.log((1 - rkl) / rkl)
             # create constraints
             if Wkl < 0:
-                cost = [-Wkl, 0., 0., -Wkl]
+                cost = [-Wkl, 0.0, 0.0, -Wkl]
             else:
-                cost = [0., Wkl, Wkl, 0.]
+                cost = [0.0, Wkl, Wkl, 0.0]
             self.constraints.append(([k, ell], cost))
 
     def solve(self, verbose=0):
-         """Solve the WCSP and returns the inferred gamete"""
-         Problem = CFN(MAXCOST, resolution=4) # resolution=4 (number of digits after dot in floatting costs) vac=1 (add this option to perform VAC in preprocessing)
-         # Creates an array of phase indicators
-         for i in range(self.L):
-                 Problem.AddVariable('p' + str(i), range(2))
-         # fix p[0] == 0
-         Problem.CFN.wcsp.assign(0, 0) 
-         # add constraints
-         for c in self.constraints:
-                 Problem.AddFunction(c[0], c[1])
+        """Solve the WCSP and returns the inferred gamete"""
+        Problem = CFN(
+            MAXCOST, resolution=4
+        )  # resolution=4 (number of digits after dot in floatting costs) vac=1 (add this option to perform VAC in preprocessing)
+        # Creates an array of phase indicators
+        for i in range(self.L):
+            Problem.AddVariable("p" + str(i), range(2))
+        # fix p[0] == 0
+        Problem.CFN.wcsp.assign(0, 0)
+        # add constraints
+        for c in self.constraints:
+            Problem.AddFunction(c[0], c[1])
 
-         #Problem.Option.FullEAC = False
-         #Problem.Option.VACthreshold = True
-         #Problem.Option.useRASPS = 1
-         #Problem.Option.RASPSnbBacktracks = 1000
-         #Problem.Option.RASPSreset = True
-         #Problem.Option.RASPSangle = 5
-         #Problem.Option.incop_cmd = '0 1 3 idwa 100000 cv v 0 200 1 0 0'
+        # Problem.Option.FullEAC = False
+        # Problem.Option.VACthreshold = True
+        # Problem.Option.useRASPS = 1
+        # Problem.Option.RASPSnbBacktracks = 1000
+        # Problem.Option.RASPSreset = True
+        # Problem.Option.RASPSangle = 5
+        # Problem.Option.incop_cmd = '0 1 3 idwa 100000 cv v 0 200 1 0 0'
 
-         #Problem.Option.showSolutions = 3
-         #Problem.Dump('data.cfn')
-         #Problem.NoPreprocessing()
-         Problem.Option.verbose = VERBOSITY
-         Problem.Option.btdMode = 1
-         try:
-           res = Problem.Solve()
-         except Exception:
-           if len(Problem.CFN.solution()) > 0:
-             return Problem.CFN.solution()
-           else:
-             return None
-         if res and len(res[0]) > 0:
-           return res[0]
-         else:
-           return None
+        # Problem.Option.showSolutions = 3
+        # Problem.Dump('data.cfn')
+        # Problem.NoPreprocessing()
+        Problem.Option.verbose = VERBOSITY
+        Problem.Option.btdMode = 1
+        try:
+            res = Problem.Solve()
+        except Exception:
+            if len(Problem.CFN.solution()) > 0:
+                return Problem.CFN.solution()
+            else:
+                return None
+        if res and len(res[0]) > 0:
+            return res[0]
+        else:
+            return None
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     T = PhaseData(test_phase)
     print("Info pairs:", *T.info_pairs.items())
     print("Info mk:", T.info_mk)
@@ -207,4 +210,3 @@ if __name__ == '__main__':
     S.add_constraints()
     phase = S.solve()
     print("Resolved phase:", *phase)
-

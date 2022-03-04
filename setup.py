@@ -26,6 +26,7 @@ setup(
         "h5py >= 3.2.1",
         "fastphase >= 1.2",
         "numba >= 0.53.1",
+        "pytoulbar2",
     ],
     scripts=["bin/fphtrain", "bin/yapp"],
     zip_safe=False,
