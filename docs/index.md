@@ -1,3 +1,13 @@
+```
+ __   __       ___          _____        _____ 
+ \ \ / /      / _ \        | ___ \      | ___ \
+  \ V /      / /_\ \       | |_/ /      | |_/ /
+   \ /       |  _  |       |  __/       |  __/ 
+   | |       | | | |       | |          | |    
+   \_/et     \_| |_/nother \_|hasing    \_|rogram    
+
+```
+
 ## Overview
 
 `yapp` is a program that includes a set of utilities to work on high
@@ -25,30 +35,13 @@ source bin/activate
 pip install -U pip
 ```
 
-Then, install Numberjack from github. First checkout that you have installed the required dependencies:
-
--    python-dev
--    swig (3.X)
--    libxml2-dev
--    zlib1g-dev
--    libgmp-dev
-
-Then install it using the following commands:
-
-```bash
-git clone git@github.com:eomahony/Numberjack.git
-cd Numberjack
-pip install .
-```
-
-Finally, you can install yapp.
-
-Either the current release (note that the python package name is yappgen):
+Finally, you can install yapp (note that the python package name is yappgen):
            
 ```bash
 pip install yappgen
 ```
 
+<!---
 Or use the latest development version:
          
 ```bash
@@ -56,6 +49,7 @@ git clone git@forgemia.inra.fr:bertrand.servin/yapp.git
 cd yapp
 pip install .
 ```
+--->
 
 To run some of yapp utilities on a computer cluster you can additionally install `ray` (`pip install ray`)
 
@@ -207,3 +201,5 @@ If you use the likelihood mode, cite:
 
 [Linkage Disequilibrium-Based Quality Control for Large-Scale Genetic
 Studies Scheet P, Stephens M (2008)](https://doi.org/10.1371/journal.pgen.1000147)
+
+© Bertrand Servin 2021
