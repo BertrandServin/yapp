@@ -35,23 +35,6 @@ source bin/activate
 pip install -U pip
 ```
 
-Then, install Numberjack from github. First checkout that you have installed the required dependencies:
-
--    python-dev
--    swig (3.X)
--    libxml2-dev
--    zlib1g-dev
--    libgmp-dev
-
-Then install it using the following commands:
-
-```bash
-git clone  https://github.com/eomahony/Numberjack.git
-cd Numberjack
-python setup.py build
-pip install .
-```
-
 Finally, you can install yapp (note that the python package name is yappgen):
            
 ```bash
