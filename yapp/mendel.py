@@ -56,20 +56,19 @@ def identify_bad_pairs(pairs, merr, fpr=1e-3):
         List of pairs from the input list that are outliers
     """
     pair2rm = []
-    pval_th = fpr/len(pairs)
+    pval_th = fpr / len(pairs)
     logger.info(f"Identifying links with p < {pval_th:.2g}")
     current_merr = merr.copy()
     current_pairs = pairs[:]
     while True:
-        tx_err = np.sum(current_merr[:, 0])/np.sum(current_merr[:, 1])
+        tx_err = np.sum(current_merr[:, 0]) / np.sum(current_merr[:, 1])
         logger.debug(f"te : {tx_err}")
         tmp_pairs = current_pairs[:]
         keepidx = np.ones(len(current_pairs), dtype=np.bool)
         for i, (p, e) in enumerate(zip(current_pairs, current_merr)):
             pval = binom.sf(n=e[1], p=tx_err, k=e[0])
             if pval < pval_th:
-                logger.debug(
-                    f"{p} : pbinom({e[0]}, size={e[1]},  p={tx_err}) = {pval}")
+                logger.debug(f"{p} : pbinom({e[0]}, size={e[1]},  p={tx_err}) = {pval}")
                 pair2rm.append(p)
                 tmp_pairs.remove(p)
                 keepidx[i] = False
@@ -111,12 +110,12 @@ def main(args):
     geno_getter = ((s.genotypes, pairs) for s in myvcf)
     merr = np.zeros((len(pairs), 2), dtype=np.int)
     with Pool(args.c) as workers:
-        for nerr, nobs in workers.imap_unordered(mendel_errors,
-                                                 geno_getter,
-                                                 chunksize=50):
+        for nerr, nobs in workers.imap_unordered(
+            mendel_errors, geno_getter, chunksize=50
+        ):
             merr[:, 0] += nerr
             merr[:, 1] += nobs
-    tx_err = np.sum(merr[:, 0])/np.sum(merr[:, 1])
+    tx_err = np.sum(merr[:, 0]) / np.sum(merr[:, 1])
     # pval_th = 0.001/pairs.shape[0]
 
     logger.info(f"Global Mendel Error rate : {tx_err:.2g}")
@@ -131,14 +130,15 @@ def main(args):
                 f"{myvcf.samples[p[1]]} "
                 f"{e[0]} {e[1]} {e[0]/e[1]:.2g} {pval:.2g} "
                 f"{p in unset_links}",
-                file=fout)
+                file=fout,
+            )
 
     if len(unset_links) > 0:
         logger.info(f"Saving original fam file to {prfx}.fam.orig")
         os.replace(f"{prfx}.fam", f"{prfx}.fam.orig")
         logger.info("Correcting pedigree errors in fam file")
         with open(f"{prfx}.fam.orig") as fam:
-            with open(f"{prfx}.fam.new", 'w') as nfam:
+            with open(f"{prfx}.fam.new", "w") as nfam:
                 for ligne in fam:
                     buf = ligne.split()
                     try:
@@ -147,17 +147,15 @@ def main(args):
                         pass
                     else:
                         if pat_p in unset_links:
-                            logger.info(
-                                f'removing paternal link {buf[2]} -> {buf[1]}')
-                            buf[2] = '0'
+                            logger.info(f"removing paternal link {buf[2]} -> {buf[1]}")
+                            buf[2] = "0"
                     try:
                         mat_p = (indiv_idx[buf[3]], indiv_idx[buf[1]])
                     except KeyError:
                         pass
                     else:
                         if mat_p in unset_links:
-                            logger.info(
-                                f'removing maternal link {buf[3]} -> {buf[1]}')
-                            buf[3] = '0'
-                    print(' '.join(buf), file=nfam)
+                            logger.info(f"removing maternal link {buf[3]} -> {buf[1]}")
+                            buf[3] = "0"
+                    print(" ".join(buf), file=nfam)
         logger.info(f"new fam file is : {prfx}.fam.new")
