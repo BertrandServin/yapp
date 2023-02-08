@@ -202,4 +202,4 @@ If you use the likelihood mode, cite:
 [Linkage Disequilibrium-Based Quality Control for Large-Scale Genetic
 Studies Scheet P, Stephens M (2008)](https://doi.org/10.1371/journal.pgen.1000147)
 
-© Bertrand Servin 2021
+© Bertrand Servin 2023
