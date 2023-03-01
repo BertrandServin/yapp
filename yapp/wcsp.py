@@ -165,8 +165,6 @@ class PhaseSolver:
         # add constraints
         for c in self.constraints:
             Problem.AddFunction(c[0], c[1])
-        Problem.Option.verbose = verbose
-        Problem.Option.btdMode = 1
         try:
             res = Problem.Solve()
         except Exception:
