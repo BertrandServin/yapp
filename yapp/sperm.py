@@ -37,15 +37,9 @@ def genotype_from_gametes(gametes, pgeno=0.95, gerr=1e-2):
     nchrobs = np.sum(gametes > -1, axis=0)
     nalt = np.sum(gametes == 1, axis=0)
     lik = np.zeros((3, nalt.shape[0]), dtype=np.float)
-    lik[
-        0,
-    ] = binom.pmf(nalt, nchrobs, gerr)
-    lik[
-        1,
-    ] = binom.pmf(nalt, nchrobs, 0.5)
-    lik[
-        2,
-    ] = binom.pmf(nalt, nchrobs, 1 - gerr)
+    lik[0,] = binom.pmf(nalt, nchrobs, gerr)
+    lik[1,] = binom.pmf(nalt, nchrobs, 0.5)
+    lik[2,] = binom.pmf(nalt, nchrobs, 1 - gerr)
     lik /= np.sum(lik, axis=0, keepdims=True)
     bestg = np.argmax(lik, axis=0)
     bestp = np.max(lik, axis=0)

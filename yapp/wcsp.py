@@ -152,7 +152,7 @@ class PhaseSolver:
                 cost = [0.0, Wkl, Wkl, 0.0]
             self.constraints.append(([k, ell], cost))
 
-    def solve(self, verbose=-1, MAXCOST=1000000):
+    def solve(self, verbose=-1, MAXCOST=None):
         """Solve the WCSP and returns the inferred gamete"""
         Problem = CFN(MAXCOST, resolution=4)
         # resolution=4 (number of digits after dot in floating costs)
@@ -171,11 +171,13 @@ class PhaseSolver:
             if len(Problem.CFN.solution()) > 0:
                 res = [Problem.CFN.solution()]
             else:
-                raise RuntimeError("WCSP Solver failed")
+                res = None
+                print("WCSP Solver failed")
         if res and len(res[0]) > 0:
             return res[0]
         else:
-            raise RuntimeError("WCSP Solver failed")
+            return res
+            print("We might crash")
 
 
 if __name__ == "__main__":

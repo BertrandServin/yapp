@@ -22,7 +22,7 @@ documentation below provides the relevant citations.
 ## Installation
 
 `yapp` has been tested to work on Linux and MacOSX with python
-versions >= 3.7.  It is suggested to install `yapp` within a
+versions from 3.7 to 3.9 (inclusive).  It is suggested to install `yapp` within a
 [python virtual
 environment](https://docs.python.org/3/tutorial/venv.html).
 Briefly this is done with these commands:

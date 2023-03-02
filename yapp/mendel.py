@@ -123,7 +123,7 @@ def main(args):
     unset_links = identify_bad_pairs(pairs, merr)
     with open(f"{prfx}.mendel.err", "w") as fout:
         print("parent offspring nerr nobs err.rate pvalue removed", file=fout)
-        for (p, e) in zip(pairs, merr):
+        for p, e in zip(pairs, merr):
             pval = binom.sf(n=e[1], p=tx_err, k=e[0])
             print(
                 f"{myvcf.samples[p[0]]} "
