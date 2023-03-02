@@ -511,7 +511,8 @@ class Pedigree:
             node = self.nodes[indiv]
         except KeyError:
             raise ValueError(f"Focal individual {indiv} not found in pedigree")
-        sys.setrecursionlimit(len(self.nodes) + 1)
+        if len(self.nodes) > sys.getrecursionlimit():
+            sys.setrecursionlimit(len(self.nodes) + 1)
         relatives = self._get_relatives(node)
         fam = Pedigree.from_pednodes(relatives)
         return fam
