@@ -6,6 +6,7 @@ pedigrees.  A pedigree is a directed graph of familial relationships
 (father, mother, offspring).
 
 """
+import sys
 import warnings
 import logging
 from . import MALE, FEMALE
@@ -156,6 +157,31 @@ class Pedigree:
         """
         for n in sorted(self.nodes.values(), key=lambda x: x.gen):
             yield n
+
+    def to_tuples(self):
+        """
+        Stores relationships in the pedigree in tuples (indiv,father,mother)
+        returns a list of such tuples
+        """
+        rels = []
+        for node in self:
+            fa = (node.father is None) and "0" or node.father.indiv
+            mo = (node.mother is None) and "0" or node.mother.indiv
+            rels.append((node.indiv, fa, mo))
+        return rels
+
+    @classmethod
+    def from_tuples(cls, rels):
+        ped = cls()
+        for rel in rels:
+            if rel[1] != "0":
+                ped.set_father(rel[0], rel[1])
+            if rel[2] != "0":
+                ped.set_mother(rel[0], rel[2])
+            if rel[1] == "0" and rel[2] == "0":
+                ped.add_indiv(rel[0])
+            _ = ped.nodes[rel[0]]
+        return ped
 
     @classmethod
     def from_fam_file(cls, path, parent_from_FID=False, default_parent=MALE):
@@ -485,6 +511,7 @@ class Pedigree:
             node = self.nodes[indiv]
         except KeyError:
             raise ValueError(f"Focal individual {indiv} not found in pedigree")
+        sys.setrecursionlimit(len(self.nodes) + 1)
         relatives = self._get_relatives(node)
         fam = Pedigree.from_pednodes(relatives)
         return fam

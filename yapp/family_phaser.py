@@ -32,9 +32,9 @@ def qerr(n, p, q=0.001):
 
 def wcsp_phase(args):
     """parallel WCSP function"""
-    node, p, children_gametes, recpos = args
+    indiv, p, children_gametes, recpos = args
     wcsp_gam = gamete.Gamete.from_wcsp_solver(p.g, children_gametes, mkpos=recpos)
-    return (node.indiv, wcsp_gam)
+    return (indiv, wcsp_gam)
 
 
 def run_segregation_task(args):
@@ -224,9 +224,7 @@ class ChromosomePair:
         fwd[0, 0] = 0.5 * emissions[0, 0]
         fwd[0, 1] = 0.5 * emissions[0, 1]
         sca[0] = 1.0 / (fwd[0, 0] + fwd[0, 1])
-        fwd[
-            0,
-        ] *= sca[0]
+        fwd[0,] *= sca[0]
         for m in range(1, self.len):
             fwd[m, 0] = (
                 fwd[m - 1, 0] * transitions[m - 1, 0, 0]
@@ -237,13 +235,9 @@ class ChromosomePair:
                 + fwd[m - 1, 1] * transitions[m - 1, 1, 1]
             ) * emissions[m, 1]
             sca[m] = 1.0 / (fwd[m, 0] + fwd[m, 1])
-            fwd[
-                m,
-            ] *= sca[m]
+            fwd[m,] *= sca[m]
         # Compute backward probabilities
-        rew[
-            self.len - 1,
-        ] /= sca[m - 1]
+        rew[self.len - 1,] /= sca[m - 1]
         for m in range(self.len - 1, 0, -1):
             rew[m - 1, 0] = (
                 transitions[m - 1, 0, 0] * emissions[m, 0] * rew[m, 0]
@@ -253,9 +247,7 @@ class ChromosomePair:
                 transitions[m - 1, 1, 0] * emissions[m, 0] * rew[m, 0]
                 + transitions[m - 1, 1, 1] * emissions[m, 1] * rew[m, 1]
             )
-            rew[
-                m - 1,
-            ] *= sca[m - 1]
+            rew[m - 1,] *= sca[m - 1]
         # loglik = -np.sum(np.log(sca))
         # Compute Posterior probabilities
         post_si = fwd * rew
@@ -284,11 +276,7 @@ class ChromosomePair:
             delta[m, 0] = val_0[psi[m, 0]] + np.log(emissions[m, 0])
             delta[m, 1] = val_1[psi[m, 1]] + np.log(emissions[m, 1])
         # termination / backtracking
-        soluce[-1] = np.argmax(
-            delta[
-                -1,
-            ]
-        )
+        soluce[-1] = np.argmax(delta[-1,])
         for m in range(self.len - 1, 0, -1):
             soluce[m - 1] = psi[m, soluce[m]]
         result = [(x, post_si[i, x]) for i, x in enumerate(soluce)]
@@ -385,6 +373,7 @@ class Phaser:
                 logger.debug(f"Ignoring {indiv} as it is not genotyped")
                 self.ignored_indivs.append(rm_node)
         self.pedigree = ped
+        self.relations = self.pedigree.to_tuples()
         # Run parameters
         self.timeout_delay = 30
 
@@ -461,10 +450,22 @@ class Phaser:
                 v.genotypes = [list(x) for x in ph_genotypes]
                 w.write_record(v)
 
+    ## Make the class pickable even in case of pedigree loops
+    def __getstate__(self):
+        ## deal with unpickable pedigree
+        state = self.__dict__.copy()
+        del state["pedigree"]
+        return state
+
+    def __setstate__(self, state):
+        ## recover pedigree after pickling
+        self.__dict__.update(state)
+        self.pedigree = pedigree.Pedigree.from_tuples(self.relations)
+
     def save(self, fname=None):
         """Save Phaser internal state to file"""
         if fname is None:
-            fname = f"{self.prefix}.db"
+            fname = f"{self.prefix}_yapp.db"
         dbfile = bz2.BZ2File(fname, "wb")
         pickle.dump(self, dbfile)
         dbfile.close()
@@ -480,9 +481,7 @@ class Phaser:
         data = {}
         genotypes = np.array(self.data["genotypes"][region])
         for i, name in enumerate(self.data["samples"]):
-            data[name] = genotypes[
-                i,
-            ]
+            data[name] = genotypes[i,]
         return data
 
     def get_mendelian_genotypes(self, region):
@@ -757,10 +756,10 @@ class Phaser:
                 elif child.mother is node:
                     children_gametes[child.indiv] = chpair.maternal_gamete
             if len(children_gametes) > 0:
-                wcsp_tasks.append((node, p, children_gametes, recpos))
+                wcsp_tasks.append((node.indiv, p, children_gametes, recpos))
 
         logger.info(f"\t\t Phasing {len(wcsp_tasks)} parents with  WCSP")
-        remaining_guys = [x[0].indiv for x in wcsp_tasks]
+        remaining_guys = [x[0] for x in wcsp_tasks]
         with Pool(ncpu) as workers:
             results = workers.imap(wcsp_phase, wcsp_tasks)
             ntimeout = 0
@@ -895,7 +894,7 @@ class Phaser:
                 )
                 children_gametes[child.indiv] = gam_off
             if len(node.children) > 0:
-                wcsp_tasks.append((node, p, children_gametes, recpos))
+                wcsp_tasks.append((node.indiv, p, children_gametes, recpos))
 
         logger.info(f"\t\tPhasing {len(wcsp_tasks)} parents with WCSP")
         start_time = time.time()
