@@ -14,4 +14,4 @@ yapp and its utilities implement some models and methods that have been
 invented by other people. If you use yapp it is important that you
 acknowledge their work by citing the appropriate
 references. These will depend on the way you use the software, see the
-[documentation](https://yapp-doc.netlify.app).
+[documentation](https://yapp.readthedocs.io).
