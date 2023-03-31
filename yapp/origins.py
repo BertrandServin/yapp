@@ -5,7 +5,7 @@ Yapp module origins.py
 Trace ancestral origins down a pedigree.
 """
 import logging
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 import numpy as np
 from zarr.errors import ContainsGroupError
 from numba import njit, prange
@@ -28,10 +28,128 @@ def compute_grm(nindiv, nsnp, origins, outgrm):
                     + (origins[i, 1, ell] == origins[j, 1, ell])
                 )
             outgrm[i, j] += val
-            # outgrm[i, j] += (origins[i, 0, ell] == origins[j, 0, ell])
-            # outgrm[i, j] += (origins[i, 1, ell] == origins[j, 0, ell])
-            # outgrm[i, j] += (origins[i, 0, ell] == origins[j, 1, ell])
-            # outgrm[i, j] += (origins[i, 1, ell] == origins[j, 1, ell])
+
+
+#### IBD matches code
+IBD_track = namedtuple("IBD_track", "id1, id2, start, end")
+
+
+def build_pbwt(H):
+    """Returns the Positional Burrows-Wheeler Transform (Durbin, 2014)
+    of a haplotype collection H in the form of a positional-prefix array
+    and a divergence array. H must me castable to a numpy array of short,
+    first dimenstion is samples, second is sites.
+    """
+    H = np.asarray(H, dtype=np.short)
+    ## M haplotypes over N markers
+    M, N = H.shape
+
+    ppa = -1 * np.ones_like(H, dtype=np.short)
+    div = 0 * np.ones_like(H, dtype=np.short)
+
+    ## initialize positional prefix array (sort on first allele)
+    ## initialize divergence array (not in the paper but makes a difference imho)
+    ## the first "0" or first "1" allele seen has no match, this leads to
+    ## div > k in these situations, which is ok.
+    y = H[:, 0]
+    a = np.flatnonzero(y == 0)
+    b = np.flatnonzero(y != 0)
+    ppa[:, 0] = np.hstack((a, b))
+    div[0, 0] = 1
+    div[len(a), 0] = 1
+
+    for k in range(N - 1):
+        y = H[ppa[:, k], k + 1]
+        p = q = k + 2
+        a = []
+        b = []
+        d = []
+        e = []
+        for i in range(M):
+            if div[i, k] > p:
+                p = div[i, k]
+            if div[i, k] > q:
+                q = div[i, k]
+            ## treat missing data as '1' just to deal with it
+            if y[i] == 0:
+                a.append(ppa[i, k])
+                d.append(p)
+                p = 0
+            else:
+                b.append(ppa[i, k])
+                e.append(q)
+                q = 0
+        ppa[:, k + 1] = np.array(a + b)
+        div[:, k + 1] = np.array(d + e)
+    return ppa, div
+
+
+def report_long_matches(H, L, ppa=None, div=None):
+    """
+    Report matches longer than L in a collection of haplotypes H.
+    ppa,div are a PBWT of the data. If None, it will be computed.
+    """
+    ## TODO : if ppa and div are None, do it on the fly
+    if ppa is None or div is None:
+        ppa, div = build_prefix_div_array(H)
+
+    H = np.asarray(H, dtype=np.short)
+    ## M haplotypes over N markers
+    M, N = H.shape
+    matches = []
+
+    for k in range(N):
+        na = nb = 0
+        i0 = 0
+        if k < (N - 1):
+            y = H[ppa[:, k], k + 1]
+        else:
+            y = np.ones(M, dtype=np.short)  # placeholder not used
+        for i in range(0, M):
+            if div[i, k] > k:  # first 0 and first 1 seen, not in Durbin2014
+                na = nb = 0
+                i0 = i
+            elif div[i, k] > (k - L) > 0:  # second condition is not in Durbin2014
+                if (na > 0) and (nb > 0):
+                    for ia in range(i0, i):
+                        dmin = 0
+                        for ib in range(ia + 1, i):
+                            if div[ib, k] > dmin:
+                                dmin = div[ib, k]
+                            if (k == N - 1) or y[ib] != y[ia]:
+                                id1, id2 = (
+                                    (ppa[ia, k] < ppa[ib, k])
+                                    and (ppa[ia, k], ppa[ib, k])
+                                    or (ppa[ib, k], ppa[ia, k])
+                                )
+                                # report match, we could yield here
+                                matches.append(IBD_track(id1, id2, dmin, k))
+                na = nb = 0
+                i0 = i
+            if y[i] == 0:
+                na += 1
+            else:
+                nb += 1
+            if k == N - 1:  ## deal with last position not in Durbin2014
+                na += 1
+                nb += 1
+            ## last haplotype block is not treated in Durbin2014
+            if i == M - 1:
+                if (na > 0) and (nb > 0):
+                    for ia in range(i0, i):
+                        dmin = 0
+                        for ib in range(ia + 1, i + 1):
+                            if div[ib, k] > dmin:
+                                dmin = div[ib, k]
+                            if div[ib, k] < k - L + 1:  ## match
+                                id1, id2 = (
+                                    (ppa[ia, k] < ppa[ib, k])
+                                    and (ppa[ia, k], ppa[ib, k])
+                                    or (ppa[ib, k], ppa[ia, k])
+                                )
+                                # report match, we could yield here
+                                matches.append(IBD_track(id1, id2, dmin, k))
+    return matches
 
 
 class OriginTracer:
