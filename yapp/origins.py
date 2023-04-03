@@ -38,7 +38,8 @@ def build_pbwt(H):
     """Returns the Positional Burrows-Wheeler Transform (Durbin, 2014)
     of a haplotype collection H in the form of a positional-prefix array
     and a divergence array. H must me castable to a numpy array of short,
-    first dimenstion is samples, second is sites.
+    first dimenstion is samples, second is sites. 0,1 are alleles ; negative
+    numbers are missing data.
     """
     H = np.asarray(H, dtype=np.short)
     ## M haplotypes over N markers
@@ -66,12 +67,16 @@ def build_pbwt(H):
         d = []
         e = []
         for i in range(M):
+            if y[i]<0: ## missing data
+                if i>0:
+                    y[i]=y[i-1] ## "impute" from closest match
+                else:
+                    y[i]=0
             if div[i, k] > p:
                 p = div[i, k]
             if div[i, k] > q:
                 q = div[i, k]
-            ## treat missing data as '1' just to deal with it
-            if y[i] == 0:
+            if y[i] == 0: ## note y[i] is 0/1
                 a.append(ppa[i, k])
                 d.append(p)
                 p = 0
@@ -91,7 +96,7 @@ def report_long_matches(H, L, ppa=None, div=None):
     """
     ## TODO : if ppa and div are None, do it on the fly
     if ppa is None or div is None:
-        ppa, div = build_prefix_div_array(H)
+        ppa, div = build_pbwt(H)
 
     H = np.asarray(H, dtype=np.short)
     ## M haplotypes over N markers
@@ -106,6 +111,11 @@ def report_long_matches(H, L, ppa=None, div=None):
         else:
             y = np.ones(M, dtype=np.short)  # placeholder not used
         for i in range(0, M):
+            if y[i]<0: ## missing data
+                if i>0:
+                    y[i]=y[i-1] ## "impute" from closest match
+                else:
+                    y[i]=0
             if div[i, k] > k:  # first 0 and first 1 seen, not in Durbin2014
                 na = nb = 0
                 i0 = i
