@@ -67,16 +67,16 @@ def build_pbwt(H):
         d = []
         e = []
         for i in range(M):
-            if y[i]<0: ## missing data
-                if i>0:
-                    y[i]=y[i-1] ## "impute" from closest match
+            if y[i] < 0:  ## missing data
+                if i > 0:
+                    y[i] = y[i - 1]  ## "impute" from closest match
                 else:
-                    y[i]=0
+                    y[i] = 0
             if div[i, k] > p:
                 p = div[i, k]
             if div[i, k] > q:
                 q = div[i, k]
-            if y[i] == 0: ## note y[i] is 0/1
+            if y[i] == 0:  ## note y[i] is 0/1
                 a.append(ppa[i, k])
                 d.append(p)
                 p = 0
@@ -111,11 +111,11 @@ def report_long_matches(H, L, ppa=None, div=None):
         else:
             y = np.ones(M, dtype=np.short)  # placeholder not used
         for i in range(0, M):
-            if y[i]<0: ## missing data
-                if i>0:
-                    y[i]=y[i-1] ## "impute" from closest match
+            if y[i] < 0:  ## missing data
+                if i > 0:
+                    y[i] = y[i - 1]  ## "impute" from closest match
                 else:
-                    y[i]=0
+                    y[i] = 0
             if div[i, k] > k:  # first 0 and first 1 seen, not in Durbin2014
                 na = nb = 0
                 i0 = i
@@ -179,6 +179,8 @@ class OriginTracer:
         phaser = family_phaser.Phaser.load(phaser_db)
         self.trace_origins(phaser)
         self.ped_grm(phaser)
+        self.trace_ancestral_origins(phaser_db)
+        self.grm(phaser_db)
 
     def trace_origins(self, phaser):
         logger.info("Tracing Origins down the pedigree")
@@ -267,10 +269,11 @@ class OriginTracer:
             print("individual\tcode\tproportion", file=fout)
             for node in phaser.pedigree:
                 for anc_all in self.origins.values():
-                    print(
-                        f"{node.indiv}\t{anc_all}\t{ancprop[node.indiv][anc_all]/Atot}",  # noqa
-                        file=fout,
-                    )
+                    if ancprop[node.indiv][anc_all] > 0:
+                        print(
+                            f"{node.indiv}\t{anc_all}\t{ancprop[node.indiv][anc_all]/Atot}",  # noqa
+                            file=fout,
+                        )
 
     def ped_grm(self, phaser):
         """Compute Genomic Relationship Matrix based on ancestral allele
@@ -300,6 +303,18 @@ class OriginTracer:
             for j in range(1, i):
                 GRM[i, j] = GRM[j, i]
         phaser.data["linkage/pedGRM"] = GRM
+
+    def trace_ancestral_origins(self, phaser):
+        """
+        Identify IBD relationships between ancestral chromosomes,
+        define a reduced number of ancestral origins and propagate
+        them down the pedigree.
+        """
+        pass
+
+    def grm(self, phaser):
+        """Compute GRM based on ancestral origins and pedigree"""
+        pass
 
 
 def main(args):
