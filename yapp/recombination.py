@@ -322,7 +322,7 @@ class RecombAnalyser:
                             )
 
     def write_results(self, prefix):
-        with open(prefix + "_yapp_recomb_coverage.txt", "w") as fout:
+        with open(self.phaser.prefix + "_yapp_recomb_coverage.txt", "w") as fout:
             print("parent sex offspring chrom left right", file=fout)
             for name, par in self.parents.items():
                 for off in par.coverage:
@@ -336,7 +336,7 @@ class RecombAnalyser:
                             f"{par.coverage[off][chrom][1]}",
                             file=fout,
                         )
-        with open(prefix + "_yapp_recombinations.txt", "w") as fout:
+        with open(self.phaser.prefix + "_yapp_recombinations.txt", "w") as fout:
             print("parent sex offspring chrom left right", file=fout)
             for name, par in self.parents.items():
                 for off in par.meioses:
@@ -578,4 +578,4 @@ def main(args):
     phaser_db = prfx + ".db"
     analyzer = RecombAnalyser(phaser_db)
     analyzer.run(recrate=args.rho, call=args.minsp)
-    analyzer.write_results(prfx)
+    analyzer.write_results()
