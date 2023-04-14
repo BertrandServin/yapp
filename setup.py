@@ -18,7 +18,7 @@ setup(
     author_email="bertrand.servin@inrae.fr",
     license="LGPLv2.1",
     packages=["yapp"],
-    python_requires="<3.10",
+    python_requires="<3.11",
     install_requires=[
         "numpy >= 1.20.2",
         "scipy >= 1.6.2",

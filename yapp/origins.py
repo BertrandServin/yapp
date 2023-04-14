@@ -179,24 +179,55 @@ class OriginTracer:
         phaser = family_phaser.Phaser.load(phaser_db)
         self.trace_origins(phaser)
         self.ped_grm(phaser)
-        self.trace_ancestral_origins(phaser_db)
-        self.grm(phaser_db)
+        self.get_founder_haplotypes(phaser)
+        self.trace_ancestral_origins(phaser)
+        self.grm(phaser)
+
+    def get_founder_haplotypes(self, phaser):
+        logger.info("Reconstructing founder haplotypes")
+        smpidx = {}
+        for i, name in enumerate(phaser.data["samples"]):
+            smpidx[name] = i
+        phaser.data.create_group("founders", overwrite=True)
+        for reg in phaser.regions:
+            or_z = phaser.data["founders"].create_group(reg)
+            logger.info(f"Working on region {reg}")
+            logger.info("Grabbing data")
+            origins = np.array(phaser.data[f"linkage/{reg}/origins"])
+            gametes = np.array(phaser.data[f"phases/{reg}/gametes"])
+            founder_haps = -1 * np.ones(
+                (self.norigins, origins.shape[-1]), dtype=np.int8
+            )
+            hapcounts = np.zeros_like(founder_haps)
+            hapdepths = np.zeros_like(hapcounts)
+            logger.info("Diving in")
+            ## We loop through all individuals to impute missing data
+            ## at founding haplotypes
+            for node in phaser.pedigree:
+                node_idx = smpidx[node.indiv]
+                orig = origins[node_idx]
+                gam = gametes[node_idx]
+                ## first gamete
+                cols = np.where(gam[0,] > -1)[0]
+                rows = np.array(orig[0,] - 1)[cols]
+                hapcounts[rows, cols] += gam[0, cols]
+                hapdepths[rows, cols] += 1
+                ## second gamete
+                cols = np.where(gam[1,] > -1)[0]
+                rows = np.array(orig[1,] - 1)[cols]
+                hapcounts[rows, cols] += gam[1, cols]
+                hapdepths[rows, cols] += 1
+            sub = np.where(hapdepths > 0)
+            founder_haps[sub] = np.where((hapcounts[sub] / hapdepths[sub]) > 0.5, 1, 0)
+            or_z["haplotypes"] = founder_haps
+        logger.info("Origins done")
 
     def trace_origins(self, phaser):
         logger.info("Tracing Origins down the pedigree")
         smpidx = {}
         for i, name in enumerate(phaser.data["samples"]):
             smpidx[name] = i
-        try:
-            phaser.data.create_group("linkage")
-        except ContainsGroupError:
-            logger.warning(
-                "Seems Zarr archive already has linkage information: will use this"
-            )  # noqa
-            logger.warning(
-                "If rebuilding linkage info is needed, delete the 'linkage' directory"
-            )  # noqa
-            return
+        phaser.data.create_group("linkage", overwrite=True)
         for reg in phaser.regions:
             logger.info(f"Working on region {reg}")
             logger.info("Grabbing data")
