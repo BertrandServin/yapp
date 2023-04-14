@@ -121,7 +121,7 @@ def main(args):
     logger.info(f"Global Mendel Error rate : {tx_err:.2g}")
     # unset_links=[]
     unset_links = identify_bad_pairs(pairs, merr)
-    with open(f"{prfx}.mendel.err", "w") as fout:
+    with open(f"{prfx}_yapp_mendel.err", "w") as fout:
         print("parent offspring nerr nobs err.rate pvalue removed", file=fout)
         for p, e in zip(pairs, merr):
             pval = binom.sf(n=e[1], p=tx_err, k=e[0])

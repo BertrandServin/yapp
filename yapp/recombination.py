@@ -575,7 +575,7 @@ class CrossingOver:
 def main(args):
     prfx = args.prfx
 
-    phaser_db = prfx + ".db"
+    phaser_db = prfx + "_yapp.db"
     analyzer = RecombAnalyser(phaser_db)
     analyzer.run(recrate=args.rho, call=args.minsp)
     analyzer.write_results()

@@ -319,6 +319,6 @@ class OriginTracer:
 
 def main(args):
     prfx = args.prfx
-    phaser_db = prfx + ".db"
+    phaser_db = prfx + "_yapp.db"
     tracer = OriginTracer()
     tracer.run(phaser_db)
