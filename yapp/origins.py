@@ -133,6 +133,7 @@ def report_long_matches(H, L, ppa=None, div=None):
                                     or (ppa[ib, k], ppa[ia, k])
                                 )
                                 # report match, we could yield here
+                                assert (k - dmin + 1) > L
                                 matches.append(IBD_track(id1, id2, dmin, k))
                 na = nb = 0
                 i0 = i
@@ -151,12 +152,13 @@ def report_long_matches(H, L, ppa=None, div=None):
                         for ib in range(ia + 1, i + 1):
                             if div[ib, k] > dmin:
                                 dmin = div[ib, k]
-                            if div[ib, k] < k - L + 1:  ## match
+                            if dmin < k - L + 1:  ## match
                                 id1, id2 = (
                                     (ppa[ia, k] < ppa[ib, k])
                                     and (ppa[ia, k], ppa[ib, k])
                                     or (ppa[ib, k], ppa[ia, k])
                                 )
+                                assert (k - dmin + 1) > L
                                 # report match, we could yield here
                                 matches.append(IBD_track(id1, id2, dmin, k))
     return matches
@@ -179,11 +181,12 @@ class OriginTracer:
         phaser = family_phaser.Phaser.load(phaser_db)
         self.trace_origins(phaser)
         self.ped_grm(phaser)
-        self.get_founder_haplotypes(phaser)
+        ## LD based analysis
+        self.get_founder_origins(phaser)
         self.trace_ancestral_origins(phaser)
         self.grm(phaser)
 
-    def get_founder_haplotypes(self, phaser):
+    def get_founder_origins(self, phaser):
         logger.info("Reconstructing founder haplotypes")
         smpidx = {}
         for i, name in enumerate(phaser.data["samples"]):
@@ -204,6 +207,7 @@ class OriginTracer:
             ## We loop through all individuals to impute missing data
             ## at founding haplotypes
             for node in phaser.pedigree:
+                # fmt: off
                 node_idx = smpidx[node.indiv]
                 orig = origins[node_idx]
                 gam = gametes[node_idx]
@@ -217,9 +221,72 @@ class OriginTracer:
                 rows = np.array(orig[1,] - 1)[cols]
                 hapcounts[rows, cols] += gam[1, cols]
                 hapdepths[rows, cols] += 1
+                # fmt: on
             sub = np.where(hapdepths > 0)
             founder_haps[sub] = np.where((hapcounts[sub] / hapdepths[sub]) > 0.5, 1, 0)
             or_z["haplotypes"] = founder_haps
+            logger.info(f"Done reconstructing founder haplotypes for region {reg}")
+            logger.info("Getting IBD tracks")
+            ## TODO : set L depending on marker density and cM length
+            ibd = report_long_matches(founder_haps, L=10)
+            logger.info(f"Reconstructing ancestral origins from IBD tracks")
+            anc_origins = np.repeat(range(self.norigins), founder_haps.shape[1])
+            anc_origins = anc_origins.reshape(self.norigins, founder_haps.shape[1])
+            ## note that by construction id2>id1 and tracks are sorted by
+            ## id1, id2, and track.start
+            for track in sorted(ibd):
+                anc_origins[track.id2, track.start : (track.end + 1)] = anc_origins[
+                    track.id1, track.start : (track.end + 1)
+                ]
+            or_z["origins"] = anc_origins
+
+    def trace_ancestral_origins(self, phaser):
+        logger.info("Tracing Ancestral Origins down the pedigree")
+        smpidx = {}
+        for i, name in enumerate(phaser.data["samples"]):
+            smpidx[name] = i
+        for reg in phaser.regions:
+            logger.info(f"Working on region {reg}")
+            segregations = np.array(phaser.data[f"phases/{reg}/segregations"])
+            origins = np.zeros_like(segregations, dtype=np.int)
+            anc_origins = np.array(phaser.data[f"founders/{reg}/origins"])
+            for node in phaser.pedigree:
+                node_idx = smpidx[node.indiv]
+                if node.father is None:
+                    orig_0 = self.origins[node.indiv + "_p"]
+                    origins[
+                        node_idx,
+                        0,
+                    ] = anc_origins[orig_0 - 1]
+                else:
+                    fa_idx = smpidx[node.father.indiv]
+                    rows = segregations[
+                        node_idx,
+                        0,
+                    ]
+                    cols = np.arange(rows.shape[0])
+                    origins[
+                        node_idx,
+                        0,
+                    ] = origins[fa_idx, rows, cols]
+                if node.mother is None:
+                    orig_1 = self.origins[node.indiv + "_m"]
+                    origins[
+                        node_idx,
+                        1,
+                    ] = anc_origins[orig_1 - 1]
+                else:
+                    mo_idx = smpidx[node.mother.indiv]
+                    rows = segregations[
+                        node_idx,
+                        1,
+                    ]
+                    cols = np.arange(rows.shape[0])
+                    origins[
+                        node_idx,
+                        1,
+                    ] = origins[mo_idx, rows, cols]
+            phaser.data[f"linkage/{reg}/ancestral_origins"] = origins
         logger.info("Origins done")
 
     def trace_origins(self, phaser):
@@ -335,17 +402,32 @@ class OriginTracer:
                 GRM[i, j] = GRM[j, i]
         phaser.data["linkage/pedGRM"] = GRM
 
-    def trace_ancestral_origins(self, phaser):
-        """
-        Identify IBD relationships between ancestral chromosomes,
-        define a reduced number of ancestral origins and propagate
-        them down the pedigree.
-        """
-        pass
-
     def grm(self, phaser):
         """Compute GRM based on ancestral origins and pedigree"""
-        pass
+        logger.info("Computing LDLA-based GRM")
+        samples = list(phaser.data["samples"])
+        N = len(samples)
+        Ltot = 0
+        GRM = np.zeros((N, N), dtype=np.float)
+        for reg in phaser.regions:
+            logger.info(f"\tAccumulate region {reg}")
+            origins = np.array(phaser.data[f"linkage/{reg}/ancestral_origins"])
+            L = origins.shape[2]
+            compute_grm(N, L, origins, GRM)
+            Ltot += L
+        GRM /= 2 * Ltot
+
+        logger.info("writing GRM to disk")
+        with open(phaser.prefix + "_yapp_GRM.txt", "w") as fout:
+            print("id1 id2 kinship", file=fout)
+            for i in range(N):
+                for j in range(i, N):
+                    if GRM[i, j] > 0:
+                        print(samples[i], samples[j], GRM[i, j], file=fout)
+        for i in range(2, N):
+            for j in range(1, i):
+                GRM[i, j] = GRM[j, i]
+        phaser.data["linkage/GRM"] = GRM
 
 
 def main(args):
