@@ -67,8 +67,8 @@ class ChromosomePair:
         obj.update_maternal_gamete(maternal_gamete)
         assert len(paternal_si) == obj.len
         assert len(maternal_si) == obj.len
-        obj.si_pat = np.array(paternal_si, dtype=np.int)
-        obj.si_mat = np.array(maternal_si, dtype=np.int)
+        obj.si_pat = np.array(paternal_si, dtype=int)
+        obj.si_mat = np.array(maternal_si, dtype=int)
         return obj
 
     @property
@@ -256,8 +256,8 @@ class ChromosomePair:
         # 3. Viterbi Algorithm
         # viterbi variables
         delta = np.zeros((self.len, 2), dtype=np.float)
-        psi = np.zeros((self.len, 2), dtype=np.int)
-        soluce = np.empty(self.len, dtype=np.int)
+        psi = np.zeros((self.len, 2), dtype=int)
+        soluce = np.empty(self.len, dtype=int)
         # init
         delta[0, 0] = np.log(0.5 * emissions[0, 0])
         delta[0, 1] = np.log(0.5 * emissions[0, 1])

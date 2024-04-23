@@ -73,7 +73,7 @@ class OriginTracer:
             segregations = np.array(phaser.data[f"phases/{reg}/segregations"])
             logger.info("Diving in")
             or_z = phaser.data["linkage"].create_group(reg)
-            origins = np.zeros_like(segregations, dtype=np.int)
+            origins = np.zeros_like(segregations, dtype=int)
             for node in phaser.pedigree:
                 node_idx = smpidx[node.indiv]
                 if node.father is None:

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def genotype_vector(genotypes):
-    return np.array([vcf.geno2int(*g[:2]) for g in genotypes], dtype=np.int)
+    return np.array([vcf.geno2int(*g[:2]) for g in genotypes], dtype=int)
 
 
 def mendel_errors(args):
@@ -105,10 +105,10 @@ def main(args):
             if indiv_idx[c.indiv] < 0:
                 continue
             pairs.append((indiv_idx[node.indiv], indiv_idx[c.indiv]))
-    # pairs = np.array(pairs, dtype=np.int)
+    # pairs = np.array(pairs, dtype=int)
 
     geno_getter = ((s.genotypes, pairs) for s in myvcf)
-    merr = np.zeros((len(pairs), 2), dtype=np.int)
+    merr = np.zeros((len(pairs), 2), dtype=int)
     with Pool(args.c) as workers:
         for nerr, nobs in workers.imap_unordered(
             mendel_errors, geno_getter, chunksize=50

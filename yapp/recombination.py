@@ -193,7 +193,7 @@ class RecombAnalyser:
                     (gametes[idx][0] > 0) | (gametes[idx][1] > 0)
                 )  # noqa
                 node = self.phaser.pedigree.nodes[indiv]
-                n_meio_info = np.zeros(len(pos) - 1, dtype=np.int)
+                n_meio_info = np.zeros(len(pos) - 1, dtype=int)
                 for c in node.children:
                     idx = smpidx[c.indiv]
                     par.meioses[c.indiv] = []
