@@ -64,7 +64,7 @@ def identify_bad_pairs(pairs, merr, fpr=1e-3):
         tx_err = np.sum(current_merr[:, 0]) / np.sum(current_merr[:, 1])
         logger.debug(f"te : {tx_err}")
         tmp_pairs = current_pairs[:]
-        keepidx = np.ones(len(current_pairs), dtype=np.bool)
+        keepidx = np.ones(len(current_pairs), dtype=bool)
         for i, (p, e) in enumerate(zip(current_pairs, current_merr)):
             pval = binom.sf(n=e[1], p=tx_err, k=e[0])
             if pval < pval_th:

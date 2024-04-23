@@ -197,7 +197,7 @@ def vcf2fph(
                                 ]
                                 for s in variants[r]
                             ],
-                            dtype=np.float,
+                            dtype=float,
                         )
                     )
                 else:
@@ -348,7 +348,7 @@ def vcf2zarr(
                             ]
                             for s in variants[r]
                         ],
-                        dtype=np.float,
+                        dtype=float,
                     )
                 )
             else:

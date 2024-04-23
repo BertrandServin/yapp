@@ -190,7 +190,7 @@ class ChromosomePair:
             [np.identity(2) * (1 - x) + (1 - np.identity(2)) * x for x in recmap]
         )
         # [ P(gam[m]| S==pat[m]), P(gam[m]| S==mat[m])]
-        emissions = np.ones((self.len, 2), dtype=np.float)
+        emissions = np.ones((self.len, 2), dtype=float)
         for m in range(self.len):
             if (
                 (gam.haplotype[m] > -1)
@@ -216,9 +216,9 @@ class ChromosomePair:
                         or err
                     )  # noqa
         # 2. Forward-Backward algorithm
-        fwd = np.ones((self.len, 2), dtype=np.float)  # Forward
-        rew = np.ones((self.len, 2), dtype=np.float)  # Backward
-        sca = np.ones(self.len, dtype=np.float)  # scaling
+        fwd = np.ones((self.len, 2), dtype=float)  # Forward
+        rew = np.ones((self.len, 2), dtype=float)  # Backward
+        sca = np.ones(self.len, dtype=float)  # scaling
 
         # Compute forward probabilities
         fwd[0, 0] = 0.5 * emissions[0, 0]
@@ -255,7 +255,7 @@ class ChromosomePair:
 
         # 3. Viterbi Algorithm
         # viterbi variables
-        delta = np.zeros((self.len, 2), dtype=np.float)
+        delta = np.zeros((self.len, 2), dtype=float)
         psi = np.zeros((self.len, 2), dtype=int)
         soluce = np.empty(self.len, dtype=int)
         # init
