@@ -224,7 +224,9 @@ class ChromosomePair:
         fwd[0, 0] = 0.5 * emissions[0, 0]
         fwd[0, 1] = 0.5 * emissions[0, 1]
         sca[0] = 1.0 / (fwd[0, 0] + fwd[0, 1])
-        fwd[0,] *= sca[0]
+        fwd[
+            0,
+        ] *= sca[0]
         for m in range(1, self.len):
             fwd[m, 0] = (
                 fwd[m - 1, 0] * transitions[m - 1, 0, 0]
@@ -235,9 +237,13 @@ class ChromosomePair:
                 + fwd[m - 1, 1] * transitions[m - 1, 1, 1]
             ) * emissions[m, 1]
             sca[m] = 1.0 / (fwd[m, 0] + fwd[m, 1])
-            fwd[m,] *= sca[m]
+            fwd[
+                m,
+            ] *= sca[m]
         # Compute backward probabilities
-        rew[self.len - 1,] /= sca[m - 1]
+        rew[
+            self.len - 1,
+        ] /= sca[m - 1]
         for m in range(self.len - 1, 0, -1):
             rew[m - 1, 0] = (
                 transitions[m - 1, 0, 0] * emissions[m, 0] * rew[m, 0]
@@ -247,7 +253,9 @@ class ChromosomePair:
                 transitions[m - 1, 1, 0] * emissions[m, 0] * rew[m, 0]
                 + transitions[m - 1, 1, 1] * emissions[m, 1] * rew[m, 1]
             )
-            rew[m - 1,] *= sca[m - 1]
+            rew[
+                m - 1,
+            ] *= sca[m - 1]
         # loglik = -np.sum(np.log(sca))
         # Compute Posterior probabilities
         post_si = fwd * rew
@@ -276,7 +284,11 @@ class ChromosomePair:
             delta[m, 0] = val_0[psi[m, 0]] + np.log(emissions[m, 0])
             delta[m, 1] = val_1[psi[m, 1]] + np.log(emissions[m, 1])
         # termination / backtracking
-        soluce[-1] = np.argmax(delta[-1,])
+        soluce[-1] = np.argmax(
+            delta[
+                -1,
+            ]
+        )
         for m in range(self.len - 1, 0, -1):
             soluce[m - 1] = psi[m, soluce[m]]
         result = [(x, post_si[i, x]) for i, x in enumerate(soluce)]
@@ -393,7 +405,9 @@ class Phaser:
         """
         vcf_file = f"{prfx}.vcf.gz"
         fam_file = f"{prfx}.fam"
-        obj = cls(vcf_file, fam_file, prfx, region=region, focalID=focalID, err=err)
+        obj = cls(
+            vcf_file, fam_file, prfx, region=region, focalID=focalID, err=err, rho=rho
+        )
         print(obj.data.tree())
         return obj
 
@@ -481,7 +495,9 @@ class Phaser:
         data = {}
         genotypes = np.array(self.data["genotypes"][region])
         for i, name in enumerate(self.data["samples"]):
-            data[name] = genotypes[i,]
+            data[name] = genotypes[
+                i,
+            ]
         return data
 
     def get_mendelian_genotypes(self, region):

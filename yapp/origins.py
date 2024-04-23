@@ -170,6 +170,7 @@ class OriginTracer:
     def __init__(self):
         self.norigins = 0
         self.origins = defaultdict(self._new_origin)
+        self.Lmatch = 5
 
     def _new_origin(self):
         """Return a new origin code, increments number of origins"""
@@ -226,9 +227,9 @@ class OriginTracer:
             founder_haps[sub] = np.where((hapcounts[sub] / hapdepths[sub]) > 0.5, 1, 0)
             or_z["haplotypes"] = founder_haps
             logger.info(f"Done reconstructing founder haplotypes for region {reg}")
-            logger.info("Getting IBD tracks")
+            logger.info(f"Getting IBD tracks  of Length >= {self.Lmatch} SNPs")
             ## TODO : set L depending on marker density and cM length
-            ibd = report_long_matches(founder_haps, L=10)
+            ibd = report_long_matches(founder_haps, L=self.Lmatch)
             logger.info(f"Reconstructing ancestral origins from IBD tracks")
             anc_origins = np.repeat(range(self.norigins), founder_haps.shape[1])
             anc_origins = anc_origins.reshape(self.norigins, founder_haps.shape[1])

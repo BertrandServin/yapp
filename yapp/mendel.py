@@ -4,15 +4,14 @@ from collections import defaultdict
 from multiprocessing import Pool
 import numpy as np
 from scipy.stats import binom
+from numba import jit
 from cyvcf2 import VCF
 from . import vcf, pedigree
 
 logger = logging.getLogger(__name__)
 
-
 def genotype_vector(genotypes):
     return np.array([vcf.geno2int(*g[:2]) for g in genotypes], dtype=np.int)
-
 
 def mendel_errors(args):
     genotypes, pairs = args
@@ -22,12 +21,12 @@ def mendel_errors(args):
     to_genotypes = np.array(genotypes)[pairs[:, 1], :2]
     fg = genotype_vector(from_genotypes)
     tg = genotype_vector(to_genotypes)
-    nobs = (fg > 0) & (tg > 0)
+    nobs = ((fg == 0) | (fg == 2)) & ((tg == 0) | (tg == 2))
     nerr = ((fg == 0) & (tg == 2)) | ((fg == 2) & (tg == 0))
     return nerr, nobs
 
 
-def identify_bad_pairs(pairs, merr, fpr=1e-3):
+def identify_bad_pairs(pairs, merr, fpr=1e-3, iterate = False):
     """Identify outliers for mendelian errors.
 
     Starting from all pairs, outliers are identified iteratively as follows:
@@ -38,7 +37,7 @@ def identify_bad_pairs(pairs, merr, fpr=1e-3):
     3. reject the null is p-value < fpr/len(pairs) (Bonferroni correction)
     4. Remove pairs for which the null is rejected from the pair list
 
-    These steps are iterated until no pair is removed from the set.
+    If iterate, these steps are iterated until no pair is removed from the set.
 
     Arguments
     ---------
@@ -72,7 +71,7 @@ def identify_bad_pairs(pairs, merr, fpr=1e-3):
                 pair2rm.append(p)
                 tmp_pairs.remove(p)
                 keepidx[i] = False
-        if keepidx.all():
+        if not iterate or keepidx.all():
             break
         logger.debug(f"Start with {len(current_pairs)} -> {len(tmp_pairs)}")
         current_pairs = tmp_pairs[:]
@@ -105,13 +104,14 @@ def main(args):
             if indiv_idx[c.indiv] < 0:
                 continue
             pairs.append((indiv_idx[node.indiv], indiv_idx[c.indiv]))
+    logger.info(f"Found {len(pairs)} offspring-parents pairs to check")
     # pairs = np.array(pairs, dtype=np.int)
 
     geno_getter = ((s.genotypes, pairs) for s in myvcf)
     merr = np.zeros((len(pairs), 2), dtype=np.int)
     with Pool(args.c) as workers:
         for nerr, nobs in workers.imap_unordered(
-            mendel_errors, geno_getter, chunksize=50
+            mendel_errors, geno_getter#, chunksize=1000
         ):
             merr[:, 0] += nerr
             merr[:, 1] += nobs
