@@ -302,7 +302,7 @@ class OriginTracer:
             segregations = np.array(phaser.data[f"phases/{reg}/segregations"])
             logger.info("Diving in")
             or_z = phaser.data["linkage"].create_group(reg)
-            origins = np.zeros_like(segregations, dtype=np.int)
+            origins = np.zeros_like(segregations, dtype=int)
             for node in phaser.pedigree:
                 node_idx = smpidx[node.indiv]
                 if node.father is None:
@@ -382,7 +382,7 @@ class OriginTracer:
         samples = list(phaser.data["samples"])
         N = len(samples)
         Ltot = 0
-        GRM = np.zeros((N, N), dtype=np.float)
+        GRM = np.zeros((N, N), dtype=float)
         for reg in phaser.regions:
             logger.info(f"\tAccumulate region {reg}")
             origins = np.array(phaser.data[f"linkage/{reg}/origins"])

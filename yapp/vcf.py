@@ -197,18 +197,18 @@ def vcf2fph(
                                 ]
                                 for s in variants[r]
                             ],
-                            dtype=np.float,
+                            dtype=float,
                         )
                     )
                 else:
                     geno = [s.genotypes[i] for s in variants[r]]
                     if mode == "genotype":
                         fphdata[r][sid] = np.array(
-                            [geno2int(*g[:2]) for g in geno], dtype=np.int
+                            [geno2int(*g[:2]) for g in geno], dtype=int
                         )
                     elif mode == "inbred":
                         fphdata[r][sid] = np.array(
-                            [geno2hap(*g[:2]) for g in geno], dtype=np.int
+                            [geno2hap(*g[:2]) for g in geno], dtype=int
                         )
                     elif mode == "phased":
                         h1 = []
@@ -220,8 +220,8 @@ def vcf2fph(
                             else:
                                 h1.append(-1)
                                 h2.append(-1)
-                        fphdata[r][sid + ".h1"] = np.array(h1, dtype=np.int)
-                        fphdata[r][sid + ".h2"] = np.array(h2, dtype=np.int)
+                        fphdata[r][sid + ".h1"] = np.array(h1, dtype=int)
+                        fphdata[r][sid + ".h2"] = np.array(h2, dtype=int)
     return {
         "regions": trueregions,
         "samples": smp,
@@ -348,7 +348,7 @@ def vcf2zarr(
                             ]
                             for s in variants[r]
                         ],
-                        dtype=np.float,
+                        dtype=float,
                     )
                 )
             else:

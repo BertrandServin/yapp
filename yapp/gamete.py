@@ -36,7 +36,7 @@ class Gamete:
     @staticmethod
     def valid_genotype(genotype):
         try:
-            geno = np.array(genotype, dtype=np.int)
+            geno = np.array(genotype, dtype=int)
         except ValueError:
             print("Genotype must be castable to a numpy array of integers")
             raise
