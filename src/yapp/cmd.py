@@ -94,6 +94,11 @@ def yapp_parser():
     parser_origins.add_argument(
         "prfx", type=str, help="prefix for input / output files"
     )
+    parser_origins.add_argument(
+        "-L", type=int, help="consider IBD if IBS matches >= m markers",
+        metavar="m",
+        default = 10
+    )
     parser_origins.set_defaults(func=origins.main)
 
     # Sperm
@@ -133,7 +138,8 @@ def yapp_parser():
     return parser
 
 
-def main(args):
+def main():
+    args = sys.argv
     parser = yapp_parser()
     if len(args) < 2:
         parser.print_help()
@@ -162,7 +168,3 @@ def main(args):
     logger.info(f"Starting YAPP {myopts.command} analysis")
     myopts.func(myopts)
     logger.info(f"Finished YAPP {myopts.command} analysis")
-
-
-if __name__ == "__main__":
-    main(sys.argv)

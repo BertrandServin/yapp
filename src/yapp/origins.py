@@ -177,8 +177,10 @@ class OriginTracer:
         self.norigins += 1
         return self.norigins
 
-    def run(self, phaser_db):
+    def run(self, phaser_db, L=None):
         """Run an analysis on phaser object"""
+        if L is not None:
+            self.Lmatch = int(L)
         phaser = family_phaser.Phaser.load(phaser_db)
         self.trace_origins(phaser)
         self.ped_grm(phaser)

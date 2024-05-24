@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yappgen"
+dynamic = ["version"]
+description = "Yet Another Phasing Program"
+readme = "README.md"
+requires-python = ">3.7"
+license = {text = "LGPL v2.1"}
+dependencies = [
+             'numpy',
+             'scipy',
+             "cyvcf2 >= 0.30.4",
+             "zarr >= 2.7.0",
+             "h5py >= 3.2.1",
+             "fastphase >= 2.0.2",
+             "numba >= 0.53.1",
+             "pytoulbar2"
+             ]
+
+[project.urls]
+Repository = "https://github.com/BertrandServin/yapp"
+Documentation = "https://yapp.readthedocs.io"
+
+[project.scripts]
+yapp = "yapp.cmd:main"
+fphtrain = "yapp.fphtrain:main"
+
+
+[tool.setuptools.dynamic]
+version = {attr = "yapp.VERSION"}
