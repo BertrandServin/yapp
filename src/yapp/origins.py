@@ -251,7 +251,7 @@ class OriginTracer:
         for reg in phaser.regions:
             logger.info(f"Working on region {reg}")
             segregations = np.array(phaser.data[f"phases/{reg}/segregations"])
-            origins = np.zeros_like(segregations, dtype=np.int)
+            origins = np.zeros_like(segregations, dtype=int)
             anc_origins = np.array(phaser.data[f"founders/{reg}/origins"])
             for node in phaser.pedigree:
                 node_idx = smpidx[node.indiv]
@@ -411,7 +411,7 @@ class OriginTracer:
         samples = list(phaser.data["samples"])
         N = len(samples)
         Ltot = 0
-        GRM = np.zeros((N, N), dtype=np.float)
+        GRM = np.zeros((N, N), dtype=float)
         for reg in phaser.regions:
             logger.info(f"\tAccumulate region {reg}")
             origins = np.array(phaser.data[f"linkage/{reg}/ancestral_origins"])
