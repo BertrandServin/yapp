@@ -386,6 +386,8 @@ class Phaser:
                 self.ignored_indivs.append(rm_node)
         self.pedigree = ped
         self.relations = self.pedigree.to_tuples()
+        if len(self.relations) > sys.getrecursionlimit():
+            sys.setrecursionlimit(len(self.relations)*2)
         # Run parameters
         self.timeout_delay = 30
 
@@ -481,7 +483,11 @@ class Phaser:
         if fname is None:
             fname = f"{self.prefix}_yapp.db"
         dbfile = bz2.BZ2File(fname, "wb")
-        pickle.dump(self, dbfile)
+        try:
+            pickle.dump(self, dbfile)
+        except RecursionError:
+            print(f"Error with recursion limit:{sys.getrecursionlimit()}")
+            raise
         dbfile.close()
 
     @classmethod
