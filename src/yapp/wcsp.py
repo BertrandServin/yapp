@@ -166,7 +166,7 @@ class PhaseSolver:
         for c in self.constraints:
             Problem.AddFunction(c[0], c[1])
         try:
-            res = Problem.Solve()
+            res = Problem.Solve(timeLimit=300)
         except Exception:
             if len(Problem.CFN.solution()) > 0:
                 res = [Problem.CFN.solution()]
