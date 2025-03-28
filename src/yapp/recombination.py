@@ -104,7 +104,7 @@ class RecombAnalyser:
             0
         ]  # noqa
         nco = len(co_loc)
-        logger.debug("Found {nco} candidate crossovers")
+        logger.debug(f"Found {nco} candidate crossovers")
         res = []
         if nco == 0:
             return res
@@ -235,6 +235,7 @@ class RecombAnalyser:
             segregations = np.array(self.phaser.data["phases"][reg]["segregations"])
             segprobs = np.array(self.phaser.data["phases"][reg]["seg_probs"])
 
+
             for node in self.phaser.pedigree:
                 sys.stdout.write(f" --> {node.indiv:>24}\r")
                 sys.stdout.flush()
@@ -246,7 +247,6 @@ class RecombAnalyser:
                     f"off:{len(node.children)} ]"
                 )
                 idx = smpidx[node.indiv]
-
                 if node.father:
                     try:
                         par = self.parents[node.father.indiv]
@@ -305,6 +305,7 @@ class RecombAnalyser:
                             )
                         )
                         cos = self.get_crossovers(si_mat)
+
                         for x, y in cos:
                             par.add_offspring_CO(node.indiv, chrom, pos[x], pos[y])
                         # coverage
