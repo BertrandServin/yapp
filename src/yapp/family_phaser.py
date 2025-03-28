@@ -387,7 +387,7 @@ class Phaser:
         self.pedigree = ped
         self.relations = self.pedigree.to_tuples()
         if len(self.relations) > sys.getrecursionlimit():
-            sys.setrecursionlimit(len(self.relations)*2)
+            sys.setrecursionlimit(len(self.relations) * 2)
         # Run parameters
         self.timeout_delay = 30
 
@@ -632,14 +632,16 @@ class Phaser:
             for indiv, segind in workers.imap_unordered(
                 run_segregation_task, pat_seg_tasks
             ):
+                node = self.pedigree.nodes[indiv]
                 chpair = chrom_pairs[node.indiv]
                 chpair.si_pat = segind
             for indiv, segind in workers.imap_unordered(
                 run_segregation_task, mat_seg_tasks
             ):
+                node = self.pedigree.nodes[indiv]
                 chpair = chrom_pairs[node.indiv]
                 chpair.si_mat = segind
-        return phases
+        return chrom_pairs
 
     def phase_samples_from_segregations(
         self,
@@ -716,7 +718,7 @@ class Phaser:
                     old_gam = chpair.paternal_gamete
                     new_gam = chpair_p.get_transmitted_from_segregation(chpair.si_pat)
                     nmiss = chpair.update_paternal_gamete(new_gam)
-                    if (nmiss[0] + nmiss[1]) > qerr(
+                    if (chpair.nhet > 0) and (nmiss[0] + nmiss[1]) > qerr(
                         chpair.nhet * 2,
                         self.err,
                         q=1e-3 / (len(pat_seg_tasks) + len(mat_seg_tasks)),
@@ -746,14 +748,14 @@ class Phaser:
                     old_gam = chpair.maternal_gamete
                     new_gam = chpair_m.get_transmitted_from_segregation(chpair.si_mat)
                     nmiss = chpair.update_maternal_gamete(new_gam)
-                    if (nmiss[0] + nmiss[1]) > qerr(
+                    if (chpair.nhet > 0) and (nmiss[0] + nmiss[1]) > qerr(
                         chpair.nhet * 2,
                         self.err,
                         q=1e-3 / (len(pat_seg_tasks) + len(mat_seg_tasks)),
                     ):  # noqa
                         logger.warning(
                             f"[from_seg] {node.mother.indiv}[mat] -> {node.indiv} :"  # noqa
-                            f"{50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch"
+                            f"{nmiss} - {chpair.nhet} - {50*(nmiss[0]+nmiss[1])/chpair.nhet:.1g} % mismatch"
                         )  # noqa
                         ignore_child[node.indiv] = True
                         chpair.update_maternal_gamete(old_gam)
@@ -873,30 +875,32 @@ class Phaser:
                 geno_p = genotypes[node.father.indiv]
                 gam_p = gamete.Gamete.from_genotype(geno_p)
                 nmiss = p.update_paternal_gamete(gam_p)
-                if (nmiss[0] + nmiss[1]) > qerr(p.nhet * 2, self.err):
-                    logger.warning(
-                        f"[from_geno] {node.father.indiv}[pat] -> {node.indiv}:"  # noqa
-                        f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches"
-                    )
-                elif nmiss[0] + nmiss[1] > 0:
-                    logger.debug(
-                        f"[from_geno] {node.father.indiv}[pat] -> {node.indiv}:"  # noqa
-                        f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches"
-                    )
+                if p.nhet > 0:
+                    if (nmiss[0] + nmiss[1]) > qerr(p.nhet * 2, self.err):
+                        logger.warning(
+                            f"[from_geno] {node.father.indiv}[pat] -> {node.indiv}:"  # noqa
+                            f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches"
+                        )
+                    elif nmiss[0] + nmiss[1] > 0:
+                        logger.debug(
+                            f"[from_geno] {node.father.indiv}[pat] -> {node.indiv}:"  # noqa
+                            f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches"
+                        )
             if node.mother is not None:
                 geno_m = genotypes[node.mother.indiv]
                 gam_m = gamete.Gamete.from_genotype(geno_m)
                 nmiss = p.update_maternal_gamete(gam_m)
-                if (nmiss[0] + nmiss[1]) > qerr(p.nhet * 2, self.err):
-                    logger.warning(
-                        f"[from_geno] {node.mother.indiv}[mat] -> {node.indiv}:"  # noqa
-                        f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches"
-                    )
-                elif (nmiss[0] + nmiss[1]) > 0:
-                    logger.debug(
-                        f"[from_geno] {node.mother.indiv}[pat] -> {node.indiv}:"  # noqa
-                        f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches"
-                    )
+                if p.nhet > 0:
+                    if (nmiss[0] + nmiss[1]) > qerr(p.nhet * 2, self.err):
+                        logger.warning(
+                            f"[from_geno] {node.mother.indiv}[mat] -> {node.indiv}:"  # noqa
+                            f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches"
+                        )
+                    elif (nmiss[0] + nmiss[1]) > 0:
+                        logger.debug(
+                            f"[from_geno] {node.mother.indiv}[pat] -> {node.indiv}:"  # noqa
+                            f"{50*(nmiss[0]+nmiss[1])/p.nhet:.1g}% mismatches"
+                        )
 
             children_gametes = {}
             for child in node.children:
