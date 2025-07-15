@@ -347,7 +347,8 @@ class OriginTracer:
         with open(phaser.prefix + "_yapp_ancestors.txt", "w") as fout:
             print("ancestor\tgamete\tcode", file=fout)
             for k in self.origins:
-                name, o = k.split("_")
+                name = k[:-2]
+                o = k[-1]
                 print(f"{name}\t{o}\t{self.origins[k]}", file=fout)
         with open(phaser.prefix + "_yapp_ancestral_props.txt", "w") as fout:
             ancprop = defaultdict(lambda: defaultdict(int))
