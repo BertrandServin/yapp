@@ -13,11 +13,12 @@ dependencies = [
              'numpy',
              'scipy',
              "cyvcf2 >= 0.30.4",
-             "zarr >= 2.7.0",
+             "zarr >= 3.1,<4",
              "h5py >= 3.2.1",
              "fastphase >= 2.0.2",
              "numba >= 0.53.1",
-             "pytoulbar2"
+             "pytoulbar2",
+             "rich"
              ]
 
 [project.urls]

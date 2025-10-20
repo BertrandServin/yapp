@@ -377,7 +377,7 @@ class Phaser:
         self.vcf_file_name = f"{out_prfx}.vcf.gz"
         genosmp = defaultdict(lambda: False)
         for g in self.genotyped_samples:
-            genosmp[g] = True
+            genosmp[str(g)] = True
         self.ignored_indivs = []
         for indiv in pedindivs:
             if not genosmp[indiv]:
@@ -415,11 +415,11 @@ class Phaser:
 
     @property
     def regions(self):
-        return self.data["regions"]
+        return [str(x) for x in self.data["regions"]]
 
     @property
     def genotyped_samples(self):
-        return list(self.data["samples"])
+        return [str(x) for x in self.data["samples"]]
 
     @property
     def pedigree_samples(self):
@@ -451,7 +451,7 @@ class Phaser:
         nidx = np.array([vcf_tmpl.samples.index(n.indiv) for n in self.pedigree])
         for reg in self.regions:
             try:
-                snps = self.data["variants"][reg]["ID"]
+                snps = [str(x) for x in self.data["variants"][reg]["ID"]]
             except KeyError:
                 continue
             variants = [snp_mapping[x] for x in snps]
@@ -500,7 +500,7 @@ class Phaser:
     def get_genotypes(self, region):
         data = {}
         genotypes = np.array(self.data["genotypes"][region])
-        for i, name in enumerate(self.data["samples"]):
+        for i, name in enumerate(self.genotyped_samples):
             data[name] = genotypes[
                 i,
             ]
@@ -579,7 +579,7 @@ class Phaser:
             gametes = np.full((nind, 2, nsnp), dtype="int8", fill_value=-2)
             segregations = np.full((nind, 2, nsnp), dtype="int8", fill_value=0)
             seg_probs = np.full(shape=(nind, 2, nsnp), dtype="float", fill_value=0.5)
-            for i, name in enumerate(self.data["samples"]):
+            for i, name in enumerate(self.genotyped_samples):
                 try:
                     chpair = phases[name]
                 except KeyError:

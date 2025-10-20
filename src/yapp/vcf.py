@@ -286,9 +286,9 @@ def vcf2zarr(
     if not output_prefix:
         output_prefix = fname.split(".")[0]
     fzname = output_prefix + ".zarr"
-    fz = zarr.open(fzname, "w")
+    fz = zarr.open(fzname, mode="w")
     fz.attrs["archive"] = fzname
-    smp = v.samples  # might differ if some requested are not found
+    smp = np.array(v.samples,dtype=np.dtypes.StringDType)  # might differ if some requested are not found
     if reg is None:
         _regions = v.seqnames
     else:
@@ -303,8 +303,8 @@ def vcf2zarr(
         raise IOError(f"No SNP found in {fname}")
 
     logger.info("Creating Archive structure")
-    fz["samples"] = zarr.array(smp, dtype="U50")
-    fz["regions"] = zarr.array(regions, dtype="U50")
+    fz["samples"] = np.array(smp, dtype=np.dtypes.StringDType)
+    fz["regions"] = np.array(regions, dtype=np.dtypes.StringDType)
     for i, reg in enumerate(regions):
         fz.create_group(f"variants/{reg}")
     fz.create_group("genotypes")
@@ -327,11 +327,11 @@ def vcf2zarr(
         if len(snps) == 0:
             continue
         variants = sorted(snps, key=lambda x: x.POS)
-        fz[f"variants/{r}/ID"] = np.array([s.ID for s in variants], dtype="U50")
-        fz[f"variants/{r}/CHROM"] = np.array([s.CHROM for s in variants], dtype="U50")
+        fz[f"variants/{r}/ID"] = np.array([s.ID for s in variants], dtype=np.dtypes.StringDType)
+        fz[f"variants/{r}/CHROM"] = np.array([s.CHROM for s in variants], dtype=np.dtypes.StringDType)
         fz[f"variants/{r}/POS"] = np.array([s.POS for s in variants], dtype=np.uint32)
-        fz[f"variants/{r}/REF"] = np.array([s.REF for s in variants], dtype="S20")
-        fz[f"variants/{r}/ALT"] = np.array([s.ALT[0] for s in variants], dtype="S20")
+        fz[f"variants/{r}/REF"] = np.array([s.REF for s in variants], dtype=np.dtypes.StringDType)
+        fz[f"variants/{r}/ALT"] = np.array([s.ALT[0] for s in variants], dtype=np.dtypes.StringDType)
 
         data = []
         for i, sid in enumerate(smp):
@@ -366,5 +366,5 @@ def vcf2zarr(
                         dtype=np.int8,
                     )
             data.append(gind)
-        fz[f"genotypes/{r}"] = zarr.array(data, chunks=False)
+        fz[f"genotypes/{r}"] = np.array(data)
     return fz

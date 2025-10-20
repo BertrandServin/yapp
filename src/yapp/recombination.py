@@ -175,7 +175,7 @@ class RecombAnalyser:
         logger.info("Set Informative meioses")
         # sample indices
         smpidx = {}
-        for i, name in enumerate(self.phaser.data["samples"]):
+        for i, name in enumerate(self.phaser.genotyped_samples):
             smpidx[name] = i
         for reg in self.phaser.regions:
             logger.info(f"Working on region {reg}")
@@ -222,7 +222,7 @@ class RecombAnalyser:
     def identify_crossovers(self, recrate=1, call=0.99):
         logger.info("Gathering crossovers")
         smpidx = {}
-        for i, name in enumerate(self.phaser.data["samples"]):
+        for i, name in enumerate(self.phaser.genotyped_samples):
             smpidx[name] = i
 
         for reg in self.phaser.regions:

@@ -192,7 +192,7 @@ class OriginTracer:
     def get_founder_origins(self, phaser):
         logger.info("Reconstructing founder haplotypes")
         smpidx = {}
-        for i, name in enumerate(phaser.data["samples"]):
+        for i, name in enumerate(phaser.genotyped_samples):
             smpidx[name] = i
         phaser.data.create_group("founders", overwrite=True)
         for reg in phaser.regions:
@@ -246,7 +246,7 @@ class OriginTracer:
     def trace_ancestral_origins(self, phaser):
         logger.info("Tracing Ancestral Origins down the pedigree")
         smpidx = {}
-        for i, name in enumerate(phaser.data["samples"]):
+        for i, name in enumerate(phaser.genotyped_samples):
             smpidx[name] = i
         for reg in phaser.regions:
             logger.info(f"Working on region {reg}")
@@ -295,7 +295,7 @@ class OriginTracer:
     def trace_origins(self, phaser):
         logger.info("Tracing Origins down the pedigree")
         smpidx = {}
-        for i, name in enumerate(phaser.data["samples"]):
+        for i, name in enumerate(phaser.genotyped_samples):
             smpidx[name] = i
         phaser.data.create_group("linkage", overwrite=True)
         for reg in phaser.regions:
