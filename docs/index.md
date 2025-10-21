@@ -1,10 +1,10 @@
 ```
- __   __       ___          _____        _____ 
+ __   __       ___          _____        _____
  \ \ / /      / _ \        | ___ \      | ___ \
   \ V /      / /_\ \       | |_/ /      | |_/ /
-   \ /       |  _  |       |  __/       |  __/ 
-   | |       | | | |       | |          | |    
-   \_/et     \_| |_/nother \_|hasing    \_|rogram    
+   \ /       |  _  |       |  __/       |  __/
+   | |       | | | |       | |          | |
+   \_/et     \_| |_/nother \_|hasing    \_|rogram
 
 ```
 
@@ -36,14 +36,14 @@ pip install -U pip
 ```
 
 Finally, you can install yapp (note that the python package name is yappgen):
-           
+
 ```bash
 pip install yappgen
 ```
 
 <!---
 Or use the latest development version:
-         
+
 ```bash
 git clone git@forgemia.inra.fr:bertrand.servin/yapp.git
 cd yapp
@@ -64,10 +64,15 @@ yapp <command> <args1, args2, ..., argsN>
 Most commands take as input files a [VCF file](http://samtools.github.io/hts-specs/VCFv4.2.pdf), its
 index obtained with [`tabix`](http://www.htslib.org/doc/tabix.html), and a [FAM
 file](https://www.cog-genomics.org/plink/1.9/formats#fam) with family
-information. `yapp` writes logs of all commands to a common log file ending in `_yapp.log`. 
+information.
+
+> [!TIP]
+> Note that `yapp` needs the variants in the VCF file to have unique IDs. It is not unsual for VCF files to have the ID set to `.` for all variants. This will raise an error in yapp. To set unique IDs to variants in such a VCF file you can use the `bcftools annotate` command. For example to set an ID based on the physical position and alleles of a variant, you can use `bcftools annotate --set-id +'%CHROM\_%POS\_%REF\_%FIRST_ALT' file.vcf` (example taken from the [bcftools documentation](https://samtools.github.io/bcftools/bcftools.html)
+
+`yapp` writes logs of all commands to a common log file ending in `_yapp.log`.
 This way all steps of an analysis will be logged in the same place (the file is not overwritten).
-`yapp` commands try to use multiple processors when required. By default they will use all that are 
-available. To control this number use the `-c` option. 
+`yapp` commands try to use multiple processors when required. By default they will use all that are
+available. To control this number use the `-c` option.
 
 *Workflow of yapp commands*
 
@@ -81,8 +86,8 @@ Available commands are:
 yapp mendel <prfx>
 ```
 
-This command performs checks for Mendelian errors between all parent -> offspring pairs. 
-It will identify pairs that exhibit a large number of such errors and are therefore 
+This command performs checks for Mendelian errors between all parent -> offspring pairs.
+It will identify pairs that exhibit a large number of such errors and are therefore
 likely to be pedigree errors. It produces a new FAM file where such errors have been
 removed and that can be used in subsequent analyses.
 
@@ -108,7 +113,7 @@ the data on disk in the form of `zarr` Zarrays which makes it
 convenient to work with and transfer information from one `yapp`
 command to another or if you want to access programatically (in
 python) the results. When you are finished using it you might consider
-deleting those files as they can be big. 
+deleting those files as they can be big.
 
 #### Citation
 `yapp phase` uses a Weighted Constraints Satisfaction Problem solver,
@@ -160,19 +165,19 @@ This command :
 
 The `sperm` command is used to infer parental genotype and phases from
 genotyping data of its gametes. The input files are the same as for
-the `phase` command with additional requirements : 
+the `phase` command with additional requirements :
 1. the fam file should not contain pedigree information (columns 3 and
    4 are ignored) but use the FID (/i.e./ first) column to relate an
    individual to its gametes
 2. the vcf file will be read assuming individuals are completely
    inbred (haploid gametes). Any heterozygote genotype is treated as
-   missing. 
+   missing.
 
 An output file is created for each gamete set found in the input files
 (/i.e./ each unique identifier in the FID column of the fam
 file). This file is in `tped` format with the additional information that
 haplotypes are phased. If you read it with plink the phase info will
-probably disappear. 
+probably disappear.
 
 ## Other Utilities
 
@@ -189,7 +194,7 @@ clusters. Genotype data can be read assuming different modes:
   haploids. Heterozygote genotypes are treated as missing.
 - likelihood : used the GL field from the VCF corresponding to the
   likelihood of each genotype on a PHRED scale (-10*log10(lik)).
-  
+
 #### Citation
 
 [Scheet P, Stephens M. A fast and flexible statistical model for
