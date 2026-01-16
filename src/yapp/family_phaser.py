@@ -419,7 +419,8 @@ class Phaser:
 
     @property
     def genotyped_samples(self):
-        return [str(x) for x in self.data["samples"]]
+        smp = self.data["samples"][:]
+        return (str(x) for x in smp)
 
     @property
     def pedigree_samples(self):
@@ -448,7 +449,10 @@ class Phaser:
         snp_mapping = {}
         for s in vcf_tmpl:
             snp_mapping[s.ID] = s
-        nidx = np.array([vcf_tmpl.samples.index(n.indiv) for n in self.pedigree])
+        idx_smp = {}
+        for ix,smp in enumerate(vcf_tmpl.samples):
+            idx_smp[smp]=ix
+        nidx = np.array([idx_smp[n.indiv] for n in self.pedigree])
         for reg in self.regions:
             try:
                 snps = [str(x) for x in self.data["variants"][reg]["ID"]]
@@ -870,7 +874,6 @@ class Phaser:
         for node in self.pedigree:
             name = node.indiv
             p = chrom_pairs[name]
-
             if node.father is not None:
                 geno_p = genotypes[node.father.indiv]
                 gam_p = gamete.Gamete.from_genotype(geno_p)

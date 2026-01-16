@@ -293,6 +293,8 @@ class Pedigree:
         self.__founders = None
         self.__non_founders = None
         self.__families = None
+
+    def _reset_gen(self):
         for n in self.nodes.values():
             n.gen = None
 
