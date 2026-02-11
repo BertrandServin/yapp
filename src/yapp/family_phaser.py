@@ -6,6 +6,7 @@ Yapp module family_phaser.py
 Infer phases and segregation indicators from high density SNP data
 in pedigrees.
 """
+
 import sys
 import logging
 from collections import defaultdict
@@ -224,9 +225,7 @@ class ChromosomePair:
         fwd[0, 0] = 0.5 * emissions[0, 0]
         fwd[0, 1] = 0.5 * emissions[0, 1]
         sca[0] = 1.0 / (fwd[0, 0] + fwd[0, 1])
-        fwd[
-            0,
-        ] *= sca[0]
+        fwd[0,] *= sca[0]
         for m in range(1, self.len):
             fwd[m, 0] = (
                 fwd[m - 1, 0] * transitions[m - 1, 0, 0]
@@ -237,13 +236,9 @@ class ChromosomePair:
                 + fwd[m - 1, 1] * transitions[m - 1, 1, 1]
             ) * emissions[m, 1]
             sca[m] = 1.0 / (fwd[m, 0] + fwd[m, 1])
-            fwd[
-                m,
-            ] *= sca[m]
+            fwd[m,] *= sca[m]
         # Compute backward probabilities
-        rew[
-            self.len - 1,
-        ] /= sca[m - 1]
+        rew[self.len - 1,] /= sca[m - 1]
         for m in range(self.len - 1, 0, -1):
             rew[m - 1, 0] = (
                 transitions[m - 1, 0, 0] * emissions[m, 0] * rew[m, 0]
@@ -253,9 +248,7 @@ class ChromosomePair:
                 transitions[m - 1, 1, 0] * emissions[m, 0] * rew[m, 0]
                 + transitions[m - 1, 1, 1] * emissions[m, 1] * rew[m, 1]
             )
-            rew[
-                m - 1,
-            ] *= sca[m - 1]
+            rew[m - 1,] *= sca[m - 1]
         # loglik = -np.sum(np.log(sca))
         # Compute Posterior probabilities
         post_si = fwd * rew
@@ -284,11 +277,7 @@ class ChromosomePair:
             delta[m, 0] = val_0[psi[m, 0]] + np.log(emissions[m, 0])
             delta[m, 1] = val_1[psi[m, 1]] + np.log(emissions[m, 1])
         # termination / backtracking
-        soluce[-1] = np.argmax(
-            delta[
-                -1,
-            ]
-        )
+        soluce[-1] = np.argmax(delta[-1,])
         for m in range(self.len - 1, 0, -1):
             soluce[m - 1] = psi[m, soluce[m]]
         result = [(x, post_si[i, x]) for i, x in enumerate(soluce)]
@@ -353,7 +342,16 @@ class ChromosomePair:
 
 class Phaser:
     def __init__(
-        self, vcf_file, ped_file, out_prfx, region=None, focalID=None, err=1e-3, rho=1
+        self,
+        vcf_file,
+        ped_file,
+        out_prfx,
+        region=None,
+        focalID=None,
+        err=1e-3,
+        rho=1,
+        nto=5,
+        ncpu=1,
     ):
         self.prefix = out_prfx
         self.err = err
@@ -389,10 +387,14 @@ class Phaser:
         if len(self.relations) > sys.getrecursionlimit():
             sys.setrecursionlimit(len(self.relations) * 2)
         # Run parameters
+        self.ncpu = ncpu
+        self.max_timeout = nto
         self.timeout_delay = 30
 
     @classmethod
-    def from_prefix(cls, prfx, region=None, focalID=None, err=1e-3, rho=1):
+    def from_prefix(
+        cls, prfx, region=None, focalID=None, err=1e-3, rho=1, nto=5, ncpu=1
+    ):
         """
         Create a phaser object from files with the same prefix :
         prfx.vcf.gz and prfx.fam
@@ -408,7 +410,15 @@ class Phaser:
         vcf_file = f"{prfx}.vcf.gz"
         fam_file = f"{prfx}.fam"
         obj = cls(
-            vcf_file, fam_file, prfx, region=region, focalID=focalID, err=err, rho=rho
+            vcf_file,
+            fam_file,
+            prfx,
+            region=region,
+            focalID=focalID,
+            err=err,
+            rho=rho,
+            nto=nto,
+            ncpu=ncpu,
         )
         print(obj.data.tree())
         return obj
@@ -501,9 +511,7 @@ class Phaser:
         data = {}
         genotypes = np.array(self.data["genotypes"][region])
         for i, name in enumerate(self.genotyped_samples):
-            data[name] = genotypes[
-                i,
-            ]
+            data[name] = genotypes[i,]
         return data
 
     def get_mendelian_genotypes(self, region):
@@ -517,7 +525,12 @@ class Phaser:
                 cg[errors] = -1
         return genotypes
 
-    def run(self, ncpu=cpu_count()):
+    def run(self):
+        logger.debug(f"Running Parameters:")
+        logger.debug(f"timeout : {self.max_timeout}")
+        logger.debug(f"timeout_delay : {self.timeout_delay}")
+        logger.debug(f"CPU : {self.ncpu}")
+
         self.data.create_group("phases")
         with open(self.prefix + "_yapp_phasestats.txt", "w") as fstat:
             print(
@@ -528,7 +541,7 @@ class Phaser:
         for reg in self.regions:
             logger.info(f"Working on region {reg}")
             try:
-                phases, ignored = self.phase_samples_from_genotypes(reg, ncpu=ncpu)
+                phases, ignored = self.phase_samples_from_genotypes(reg)
             except KeyError:
                 logger.info(f"No data on region {reg}")
                 continue
@@ -543,7 +556,7 @@ class Phaser:
             )
             sys.stdout.flush()
             phases = self.phase_samples_from_segregations(
-                reg, ncpu=ncpu, phases=phases, ignore_child=ignored
+                reg, phases=phases, ignore_child=ignored
             )
             nhet = 0
             nresolved = 0
@@ -628,7 +641,7 @@ class Phaser:
                         self.err,
                     )
                 )
-        with Pool(cpu_count()) as workers:
+        with Pool(self.ncpu) as workers:
             for indiv, segind in workers.imap_unordered(
                 run_segregation_task, pat_seg_tasks
             ):
@@ -646,7 +659,6 @@ class Phaser:
     def phase_samples_from_segregations(
         self,
         region,
-        ncpu=1,
         phases=None,
         ignore_child=defaultdict(lambda: False),  # noqa
     ):
@@ -699,7 +711,7 @@ class Phaser:
                 )
 
         nmm = 0
-        with Pool(cpu_count()) as workers:
+        with Pool(self.ncpu) as workers:
             for indiv, segind in workers.imap_unordered(
                 run_segregation_task, pat_seg_tasks
             ):
@@ -784,7 +796,7 @@ class Phaser:
 
         logger.info(f"\t\t Phasing {len(wcsp_tasks)} parents with  WCSP")
         remaining_guys = [x[0] for x in wcsp_tasks]
-        with Pool(ncpu) as workers:
+        with Pool(self.ncpu) as workers:
             results = workers.imap(wcsp_phase, wcsp_tasks)
             ntimeout = 0
             while True:
@@ -817,7 +829,7 @@ class Phaser:
                 except StopIteration:
                     break
                 except TimeoutError:
-                    if ntimeout > 5:
+                    if ntimeout > self.max_timeout:
                         logger.warning(
                             f"[WCSP] Max delay attained :"
                             f"aborting {len(remaining_guys)} remaining tasks"
@@ -844,7 +856,7 @@ class Phaser:
 
         return chrom_pairs
 
-    def phase_samples_from_genotypes(self, region, ncpu=1, phases=None):
+    def phase_samples_from_genotypes(self, region, phases=None):
         """Reconstruct paternal and maternal gametes in the pedigree
         based on observed genotypes.
         Returns
@@ -924,7 +936,7 @@ class Phaser:
 
         logger.info(f"\t\tPhasing {len(wcsp_tasks)} parents with WCSP")
         start_time = time.time()
-        with Pool(ncpu) as workers:
+        with Pool(self.ncpu) as workers:
             for indiv, new_gam in workers.imap(wcsp_phase, wcsp_tasks):
                 p = chrom_pairs[indiv]
                 try:
@@ -952,7 +964,7 @@ class Phaser:
                     else:
                         logger.debug("Fixed it.")
         elapsed_time = time.time() - start_time
-        tot_time = elapsed_time * ncpu
+        tot_time = elapsed_time * self.ncpu
         if len(wcsp_tasks) > 0:
             time_per_task = tot_time / len(wcsp_tasks)
             self.timeout_delay = round(time_per_task) + 1
@@ -976,9 +988,15 @@ def main(args):
 
     logger.info("Loading Data")
     phaser = Phaser.from_prefix(
-        prfx, region=args.reg, focalID=args.focalID, err=args.err, rho=args.rho
+        prfx,
+        region=args.reg,
+        focalID=args.focalID,
+        err=args.err,
+        rho=args.rho,
+        nto=args.nto,
+        ncpu=args.c,
     )
-    phaser.run(ncpu=args.c)
+    phaser.run()
     logger.info(
         f"Exporting results to : "
         f"{phaser.vcf_out_file_name} and {phaser.prefix}_yapp.db"

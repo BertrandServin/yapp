@@ -65,6 +65,14 @@ def yapp_parser():
         metavar="R",
         default=1,
     )
+    parser_phase.add_argument(
+        "--n-timeout",
+        dest="nto",
+        type=int,
+        help="Set maximum number of timeouts before abort",
+        metavar="T",
+        default=5,
+    )
     parser_phase.set_defaults(func=family_phaser.main)
 
     # Recomb
@@ -161,10 +169,10 @@ def main():
     logger.addHandler(fh)
     if not myopts.quiet:
         ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
+        ch.setLevel(log_config[myopts.log_level])
         ch.setFormatter(formatter)
         logger.addHandler(ch)
-
+    logger.info(f"This is YAPP version {version}")
     logger.info(f"Starting YAPP {myopts.command} analysis")
     myopts.func(myopts)
     logger.info(f"Finished YAPP {myopts.command} analysis")
