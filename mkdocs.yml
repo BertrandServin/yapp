@@ -1,4 +1,7 @@
 site_name: YAPP ~ Software tools to analyse genomic data in pedigrees
 theme: readthedocs
 nav:
-    - 'index.md'
+    - Home: index.md
+    - Guides:
+      - Haplotype diversity plot: guides/hapdiv.md
+      - LDLA mapping: guides/ldla.md
